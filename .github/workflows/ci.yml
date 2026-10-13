@@ -22,13 +22,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]  # ADR-006
+        # Explicit images, not *-latest, so the CI environment only changes via a commit (ADR-006).
+        os: [ubuntu-24.04, windows-2025]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v10
         with:
+          version: "0.12.17"  # same uv as local development
           enable-cache: true
 
       - name: Install locked environment
