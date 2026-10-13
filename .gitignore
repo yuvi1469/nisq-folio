@@ -1,0 +1,35 @@
+# Anchored with a leading "/" so they don't also match src/nisq_folio/data/.
+# Experiment outputs (regenerable; see README "Reproducing results")
+/results/
+
+# Raw / cached market data (downloaded at runtime, never committed)
+/data/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Environments
+.venv/
+.env
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

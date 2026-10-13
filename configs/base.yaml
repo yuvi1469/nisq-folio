@@ -1,0 +1,18 @@
+# Base configuration shared by every experiment. Experiment configs extend this file.
+# Paths are relative to the repository root. No paths are hardcoded in source.
+
+paths:
+  data_dir: data
+  results_dir: results
+
+# Root seed. Child seeds for each run are derived from it explicitly
+# (numpy.random.SeedSequence) and passed as arguments; global RNG state is never set.
+# See DECISIONS.md ADR-004.
+seed: 20150101
+
+universe:
+  start_date: "2015-01-01"
+  end_date: "2023-12-31"
+  n_stocks: 30
+  n_sectors: 6
+  tickers: []   # TBD: fixed 30-ticker list, to be recorded in an ADR

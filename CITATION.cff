@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "NISQ-Folio: Benchmarking a hybrid RMT-QUBO-QAOA pipeline for cardinality-constrained portfolio selection under NISQ noise"
+type: software
+authors:
+  - family-names: Guliani
+    given-names: Yuvaraj
+    email: yuvaraj.bs24dmu057@spjain.org
+    # affiliation: "S P Jain School of Global Management"  # inferred from email domain; confirm, then uncomment
+    # orcid: "https://orcid.org/0000-0000-0000-0000"  # add if you have one
+version: 0.1.0
+date-released: 2026-10-13
+license: MIT
+# repository-code: "https://github.com/<user>/nisq-folio"  # fill in once the remote exists
+keywords:
+  - quantum computing
+  - QAOA
+  - portfolio optimization
+  - QUBO
+  - random matrix theory
+  - NISQ
