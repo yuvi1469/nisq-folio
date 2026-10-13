@@ -1,7 +1,7 @@
 # NISQ-Folio
 
-> **Status: Week 2 of 14.** The data pipeline is implemented; solvers and quantum components
-> are not yet. See [PROJECT_PLAN.md](PROJECT_PLAN.md) for scope and milestones.
+> **Status: Week 3 of 14.** The data pipeline, problem definition, and four classical baselines
+> are implemented and validated; quantum components are not yet. See [PROJECT_PLAN.md](PROJECT_PLAN.md) for scope and milestones.
 
 ## Overview
 
@@ -40,6 +40,9 @@ uv run ruff check .  # lint
 
 # Download (first run) or load from cache the 30-stock universe, and print a summary:
 uv run python -m nisq_folio.data --config configs/base.yaml
+
+# Validate the classical baselines against the exact optimum (writes a run record to results/):
+uv run python -m nisq_folio.baselines --config configs/base.yaml
 ```
 
 The first data run downloads about 2,264 trading days for 30 tickers from Yahoo Finance into
@@ -52,6 +55,9 @@ _Experiment entry points will be documented here once implemented._
 ```
 src/nisq_folio/
   config.py     YAML config loading and validation
+  problem.py    the cardinality-constrained objective every solver minimizes
+  calibration.py  risk-aversion calibration rule
+  seeding.py    reproducible per-component random streams
   provenance.py git commit / dirty-state capture for every artifact
   data/         market data download, caching, returns and covariance inputs
   denoise/      random-matrix-theory covariance denoising

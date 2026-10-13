@@ -61,7 +61,7 @@ restriction and simulation method will be finalized in ADR-007 after a runtime b
 |---|---|---|
 | W1 ✅ | Scaffolding, environment, CI | This repo; green CI |
 | W2 ✅ | Data pipeline | `data/`: ticker list ADR, download + cache, returns, covariance; tests |
-| W3 | Classical baselines | `baselines/`: all four solvers, validated against brute force on small N |
+| W3 ✅ | Classical baselines | `baselines/`: all four solvers, validated against brute force on small N |
 | W4 | QUBO + noise benchmark | `qubo/` with penalty-weight ADR; noisy-simulation runtime benchmark → finalize ADR-007 |
 | W5 | QAOA core | `qaoa/` with X mixer, noiseless; metric definitions ADR |
 | W6 | Mixers | `mixers/`: constraint-preserving + adaptive mixers |

@@ -238,3 +238,119 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
 - **Reasoning:** results must not depend on where a command was launched from (CLAUDE.md rule 3). This
   replaces the "relative to the repository root" comment in the original scaffold, which code could not
   enforce without guessing where the root is.
+
+## ADR-014: In-sample / out-of-sample split
+
+- **Status:** Accepted (2026-10-13). Proposed by Claude; the user delegated the choice.
+- **Decision:** a single fixed split. μ and Σ are estimated on returns from **2015-01-02 to
+  2020-12-31** (1,510 trading days). Portfolios that solvers select are evaluated on
+  **2021-01-04 to 2023-12-29** (753 trading days), data that no solver ever sees. Configured as
+  `problem.in_sample_end`. Implemented in `data/returns.py::split_returns`.
+- **Reasoning:**
+  - A fixed split is simple to explain and to reproduce.
+  - A rolling window would multiply the already-tight compute budget (ADR-007).
+  - The 6-year in-sample window gives about 1,500 observations for at most 14 assets, so Σ is
+    well conditioned. RMT denoising (W7) is tested on this window.
+  - The out-of-sample period includes the 2022 drawdown, so it is not a single easy regime.
+- **Limitation:** one split gives one out-of-sample period. Out-of-sample results are evidence
+  about that period only. A rolling-window robustness check can be added later if budget allows.
+
+## ADR-015: Problem definition and risk aversion λ = 4.5
+
+- **Status:** Accepted (2026-10-13)
+- **Decision:** select exactly K = N/2 of N assets, held in equal weights w = x/K, and minimize
+
+      f(x) = λ wᵀΣw − μᵀw = (λ/K²) xᵀΣx − (1/K) μᵀx,   x ∈ {0,1}ᴺ, Σx = K
+
+  (`problem.py`). Every solver, classical or quantum, minimizes exactly this function, and the
+  continuous Markowitz baseline minimizes the same expression without the equal-weight and
+  cardinality constraints. So results are directly comparable.
+- **Why equal weights:** a binary decision per asset is what a QUBO/QAOA encoding can represent
+  with N qubits. Continuous weights would need several qubits per asset, which is not
+  feasible at this scale.
+- **Choosing λ, the rule:** for each instance, compute λ_bal = sd(portfolio return) / sd(portfolio
+  variance) over all C(N, K) selections (`calibration.py`). At λ_bal, return and risk vary equally
+  across the feasible set, so neither alone decides the optimum. Then set λ to the median of
+  λ_bal over 200 seeded in-sample instances (50 per N), rounded to the nearest 0.5.
+- **Measured (2026-10-13, in-sample data):**
+
+  | N | λ_bal p10 | median | p90 |
+  |---|---|---|---|
+  | 8 | 2.76 | 4.04 | 8.15 |
+  | 10 | 2.17 | 4.49 | 7.45 |
+  | 12 | 2.95 | 5.99 | 8.31 |
+  | 14 | 3.09 | 4.47 | 7.40 |
+  | all | 2.76 | **4.59** | 7.73 |
+
+  → **λ = 4.5**.
+- **Reasoning:** at λ ≈ 1 the return term varies about 4× more than the risk term, and the problem
+  collapses toward "pick the K highest-return assets", which is a trivial benchmark. The rule
+  was chosen to make the trade-off non-degenerate, *not* to make any solver look good or bad;
+  solver performance was not consulted when choosing it.
+- **Interpretation:** in the textbook utility U = μ_p − (A/2)σ_p², λ = 4.5 corresponds to A = 9,
+  which is at the high end of commonly used values (about 1–10). This is a modelling choice made
+  for benchmark quality, not a claim about real investors.
+
+## ADR-016: Classical baselines and their validation
+
+- **Status:** Accepted (2026-10-13)
+- **Implementations** (`baselines/`), all on the same `PortfolioProblem`:
+  1. **Brute force:** vectorized enumeration of all C(N, K) subsets; ties go to the lexicographically
+     first subset. Exact, so it is the reference for every other method.
+  2. **Greedy:** add the asset with the smallest increase in f, with fixed K scaling:
+     Δⱼ = a(2(Σx)ⱼ + Σⱼⱼ) − bμⱼ. Deterministic.
+  3. **Simulated annealing:**
+     - Swap moves (one asset in, one out), so every state stays feasible.
+     - Metropolis acceptance; geometric cooling from T₀ to 10⁻³·T₀.
+     - T₀ is set so an average uphill move is accepted with probability 0.8, estimated from
+       100 random swaps.
+     - O(1) incremental swap Δ.
+     - Seeded from stream (STREAM_SIMULATED_ANNEALING, N, instance).
+     - Default 2,000 steps.
+  4. **Continuous Markowitz + rounding:** long-only simplex QP solved by SLSQP from equal
+     weights, then keep the K largest weights (equal-weighted). Deterministic.
+- **Tests:**
+  - Brute force agrees with an independent scalar-loop exhaustive search.
+  - Greedy agrees with an independent full-objective greedy.
+  - The O(1) swap Δ equals the full recomputation.
+  - Markowitz weights satisfy the KKT optimality conditions and match a closed-form case.
+  - Every solver returns a feasible selection whose objective is ≥ the true optimum.
+- **Validation on real data (run record `results/baselines_validation/20261013T072701Z_a92a5a8.json`,
+  clean commit `a92a5a8`, data snapshot SHA-256 `25b7e5a7…`; 50 seeded instances per N, λ = 4.5).**
+  Gap = (f − f*)/(f_worst − f*):
+
+  | N | K | Greedy optimal | Greedy mean / max gap | Markowitz+round optimal | M+R mean / max gap | SA (2,000 steps) optimal |
+  |---|---|---|---|---|---|---|
+  | 8 | 4 | 92% | 0.0011 / 0.022 | 84% | 0.0073 / 0.20 | 100% |
+  | 10 | 5 | 94% | 0.0002 / 0.006 | 78% | 0.0132 / 0.20 | 100% |
+  | 12 | 6 | 92% | 0.0007 / 0.023 | 52% | 0.0212 / 0.20 | 100% |
+  | 14 | 7 | 92% | 0.0001 / 0.003 | 32% | 0.0414 / 0.24 | 100% |
+
+- **Simulated annealing optimal-hit rate vs step budget** (same 50 instances per N and the same
+  seeds; 100 calibration evaluations come on top of each budget):
+
+  | N | C(N,K) | 25 | 50 | 100 | 200 | 500 | 2,000 |
+  |---|---|---|---|---|---|---|---|
+  | 8 | 70 | 72% | 94% | 100% | 100% | 100% | 100% |
+  | 10 | 252 | 50% | 70% | 94% | 100% | 100% | 100% |
+  | 12 | 924 | 22% | 40% | 74% | 90% | 100% | 100% |
+  | 14 | 3,432 | 6% | 26% | 64% | 86% | 98% | 100% |
+
+- **What this means for the research question (stated honestly):**
+  - At N ≤ 14, the classical heuristics are strong. Greedy is optimal in more than 90% of instances.
+  - SA with 2,000 steps is always optimal. That budget is comparable to exhaustive enumeration
+    at N = 14, but SA also reaches about 90% with 200 steps.
+  - So "QAOA finds better solutions than classical" is not a realistic outcome at these sizes.
+  - A meaningful comparison must match the **evaluation budget**, e.g. QAOA shots versus SA steps.
+    It should be reported as quality versus budget, not as best-found solution.
+  - This informs the metric ADR due in W5 (PROJECT_PLAN.md §1 framing caveat). It is recorded
+    now so that the metric is fixed before any quantum results exist.
+- **Markowitz + rounding gets worse as N grows** (84% → 32% optimal). Measured explanation, using
+  the same instances and counting assets with continuous weight > 10⁻⁴:
+  - **Cause 1, partial:** the continuous optimum holds fewer than K assets more often as N grows
+    (6%, 18%, 28%, 50% of instances for N = 8…14). When that happens, rounding fills the remaining
+    slots with assets that have essentially zero weight, and it is optimal in only 12–36% of those cases.
+  - **Cause 2:** even when it holds ≥ K assets, its optimal rate also falls (87% → 52%). The continuous
+    weights are unequal, so "largest K weights" is not the same as "best equal-weight K-subset".
+  - This is a known weakness of relax-and-round. It is a fair baseline, not a bug: its continuous
+    solution passes the KKT checks in the tests.
