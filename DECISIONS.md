@@ -202,6 +202,18 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
   `test_returns_invariant_to_rescaling_prices`), so re-downloads should give the same returns up to
   rounding, but this is not guaranteed by the source. Raw Yahoo data is not redistributed in this public
   repo (data/ is gitignored). Reported results will cite the download date and checksum of the snapshot used.
+- **Measured (2026-10-13):** two downloads made seconds apart were identical. But downloads a few
+  minutes apart differed in about 80% of cells, by at most 1.1e-6 relative in price. The
+  difference is not a constant rescale. This is noise in what Yahoo serves; our pipeline is
+  deterministic: writing the same frame gives identical Parquet bytes. The effect downstream was
+  ≤ 1.6e-6 in daily returns and ≈ 1.3e-7 in annualized μ and Σ entries, which is negligible next to
+  estimation error. It does rule out bit-for-bit reproduction from a fresh download.
+- **Consequences:**
+  - (a) The cached snapshot is the frozen input. Do not run `--refresh` once experiments start.
+  - (b) Every experiment logs the snapshot's SHA-256 along with its config and git commit.
+  - (c) A later robustness check should confirm that conclusions (e.g. which subset is optimal) do not change
+    under perturbations of this size. Snapshot used from Week 2 on: downloaded 2026-10-13T06:59:43Z at commit
+    `8b297f9`, SHA-256 `25b7e5a7…4267a91`.
 - **Not decided here:** an in-sample / out-of-sample split for evaluating selected portfolios. That goes in a
   later ADR, before results are generated.
 
