@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 import pandas as pd
 
 TRADING_DAYS_PER_YEAR = 252
@@ -34,6 +36,31 @@ def simple_returns(prices: pd.DataFrame) -> pd.DataFrame:
     if (prices <= 0).to_numpy().any():
         raise ValueError("prices must be strictly positive")
     return (prices / prices.shift(1) - 1.0).iloc[1:]
+
+
+def split_returns(returns: pd.DataFrame, in_sample_end: date) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Split returns into an estimation window and a later evaluation window.
+
+    In-sample rows have date <= ``in_sample_end``; out-of-sample rows have date > it
+    (DECISIONS.md ADR-014). Problems are built only from in-sample data; selected portfolios
+    are evaluated on out-of-sample data, which the solvers never see.
+
+    Args:
+        returns: Returns with a DatetimeIndex.
+        in_sample_end: Last date of the estimation window (inclusive).
+
+    Returns:
+        ``(in_sample, out_of_sample)``.
+
+    Raises:
+        ValueError: If either part would be empty.
+    """
+    cutoff = pd.Timestamp(in_sample_end)
+    in_sample = returns.loc[returns.index <= cutoff]
+    out_of_sample = returns.loc[returns.index > cutoff]
+    if in_sample.empty or out_of_sample.empty:
+        raise ValueError(f"split at {in_sample_end} leaves an empty window")
+    return in_sample, out_of_sample
 
 
 def annualized_moments(

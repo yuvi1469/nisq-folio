@@ -24,3 +24,18 @@ universe:
     Energy:                 [XOM, CVX, COP, SLB, EOG]
     Consumer Staples:       [PG, KO, PEP, WMT, COST]
     Industrials:            [CAT, UNP, HON, LMT, UPS]
+
+# The optimization problem (DECISIONS.md ADR-014, ADR-015). K = N / 2 for every size.
+problem:
+  in_sample_end: "2020-12-31"   # mu and Sigma are estimated on returns up to this date
+  sizes: [8, 10, 12, 14]
+  risk_aversion: 4.5            # median "balanced" lambda over 200 instances, rounded (ADR-015)
+
+# Classical baselines (DECISIONS.md ADR-016).
+baselines:
+  validation_instances_per_size: 50
+  simulated_annealing:
+    n_steps: 2000
+    initial_acceptance: 0.8
+    final_temperature_ratio: 0.001
+    n_calibration_moves: 100

@@ -44,6 +44,34 @@ class UniverseConfig:
 
 
 @dataclass(frozen=True)
+class ProblemConfig:
+    """Settings that define the optimization problem.
+
+    Attributes:
+        in_sample_end: Last date (inclusive) of the window used to estimate mu and Sigma.
+        sizes: Problem sizes N; each must be even, since K = N / 2.
+        risk_aversion: lambda in the objective (ADR-015).
+    """
+
+    in_sample_end: date
+    sizes: tuple[int, ...]
+    risk_aversion: float
+
+
+@dataclass(frozen=True)
+class BaselinesConfig:
+    """Settings for the classical baselines.
+
+    Attributes:
+        validation_instances_per_size: Instances per N in the brute-force validation run.
+        simulated_annealing: Keyword arguments for ``AnnealingSettings`` (validated there).
+    """
+
+    validation_instances_per_size: int
+    simulated_annealing: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class Config:
     """Validated project configuration.
 
@@ -53,6 +81,8 @@ class Config:
         seed: Root seed from which every per-run seed is derived (ADR-004).
         universe: The asset universe and historical window.
         source_path: Absolute path of the YAML file this config was loaded from.
+        problem: Problem settings, or ``None`` if the file has no ``problem`` section.
+        baselines: Baseline settings, or ``None`` if the file has no ``baselines`` section.
     """
 
     data_dir: Path
@@ -60,6 +90,20 @@ class Config:
     seed: int
     universe: UniverseConfig
     source_path: Path
+    problem: ProblemConfig | None = None
+    baselines: BaselinesConfig | None = None
+
+    def require_problem(self) -> ProblemConfig:
+        """Return the ``problem`` section, raising ConfigError if the file has none."""
+        if self.problem is None:
+            raise ConfigError(f"{self.source_path}: this command needs a 'problem' section")
+        return self.problem
+
+    def require_baselines(self) -> BaselinesConfig:
+        """Return the ``baselines`` section, raising ConfigError if the file has none."""
+        if self.baselines is None:
+            raise ConfigError(f"{self.source_path}: this command needs a 'baselines' section")
+        return self.baselines
 
 
 def load_config(path: Path | str) -> Config:
@@ -88,13 +132,47 @@ def load_config(path: Path | str) -> Config:
     if seed < 0:
         raise ConfigError(f"{source}: seed must be non-negative, got {seed}")
 
+    problem = None
+    if "problem" in raw:
+        problem = _parse_problem(_require(raw, "problem", dict, source), universe, source)
+    baselines = None
+    if "baselines" in raw:
+        baselines = _parse_baselines(_require(raw, "baselines", dict, source), source)
+
     return Config(
         data_dir=(base_dir / _require(paths, "data_dir", str, source)).resolve(),
         results_dir=(base_dir / _require(paths, "results_dir", str, source)).resolve(),
         seed=seed,
         universe=universe,
         source_path=source,
+        problem=problem,
+        baselines=baselines,
     )
+
+
+def _parse_problem(raw: dict[str, Any], universe: UniverseConfig, source: Path) -> ProblemConfig:
+    end = _parse_date(_require(raw, "in_sample_end", (str, date), source), "in_sample_end", source)
+    if not universe.start_date < end < universe.end_date:
+        raise ConfigError(f"{source}: in_sample_end {end} must lie strictly inside the window")
+    sizes = _require(raw, "sizes", list, source)
+    n_assets = len(universe.tickers)
+    for n in sizes:
+        if isinstance(n, bool) or not isinstance(n, int) or n < 2 or n % 2 or n > n_assets:
+            raise ConfigError(
+                f"{source}: every size must be an even integer in [2, {n_assets}], got {n!r}"
+            )
+    risk = _require(raw, "risk_aversion", (int, float), source)
+    if isinstance(risk, bool) or risk < 0:
+        raise ConfigError(f"{source}: risk_aversion must be a number >= 0, got {risk!r}")
+    return ProblemConfig(in_sample_end=end, sizes=tuple(sizes), risk_aversion=float(risk))
+
+
+def _parse_baselines(raw: dict[str, Any], source: Path) -> BaselinesConfig:
+    count = _require(raw, "validation_instances_per_size", int, source)
+    if count < 1:
+        raise ConfigError(f"{source}: validation_instances_per_size must be >= 1")
+    annealing = _require(raw, "simulated_annealing", dict, source)
+    return BaselinesConfig(validation_instances_per_size=count, simulated_annealing=dict(annealing))
 
 
 def _parse_universe(raw: dict[str, Any], source: Path) -> UniverseConfig:
