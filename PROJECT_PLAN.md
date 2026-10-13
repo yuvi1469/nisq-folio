@@ -30,7 +30,7 @@ exact comparison metric is fixed in an ADR before any results are generated (Mil
 | Classical baselines | (1) brute force (exact), (2) simulated annealing, (3) greedy, (4) continuous Markowitz + rounding to K |
 | Quantum backend | Qiskit Aer simulation, with noise models from fake IBM backends + parameterised noise levels |
 
-Out of scope: real quantum hardware runs, transaction costs, multi-period rebalancing, and
+Out of scope: real quantum hardware runs, anything that costs money (ADR-008), transaction costs, multi-period rebalancing, and
 universes larger than 30 stocks.
 
 ## 3. Experiment design (factorial)

@@ -36,3 +36,8 @@ dependencies only with `uv add` / `uv remove` (which update `uv.lock`), and reco
    `DECISIONS.md`, with the reasoning.
 9. **Coverage.** Target 85% test coverage on core modules (enforced by `fail_under = 85` in
    `pyproject.toml`). Prioritize meaningful property-based tests over padding for the number.
+10. **Zero cost.** The whole project must be completed free of cost (ADR-008). Do not introduce
+    anything that costs money or needs a paid account: no paid APIs or data feeds, no paid
+    cloud compute, no paid quantum hardware, and no CI setup that leaves GitHub's free tier.
+    If a step seems to need something paid, stop and tell the user, and propose a free
+    alternative.

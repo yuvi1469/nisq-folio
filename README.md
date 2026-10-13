@@ -21,12 +21,16 @@ architectural and scientific choice is recorded in [DECISIONS.md](DECISIONS.md).
 Requires [uv](https://docs.astral.sh/uv/). uv will fetch Python 3.12 automatically if needed.
 
 ```bash
-git clone https://github.com/<user>/nisq-folio.git
+git clone https://github.com/yuvi1469/nisq-folio.git
 cd nisq-folio
 uv sync --locked
 ```
 
 `--locked` installs exactly the versions in `uv.lock` and fails if the lock is out of date.
+
+Everything runs on a laptop at zero cost: open-source packages, local simulation only (no paid
+quantum hardware or cloud compute), and free public market data. On Windows, keep the clone
+outside OneDrive-synced folders such as Desktop and Documents (see DECISIONS.md ADR-009).
 
 ## Quickstart
 

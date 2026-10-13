@@ -9,10 +9,16 @@ on:
 permissions:
   contents: read
 
+# Cancel superseded runs on the same branch/PR so runner time isn't wasted (ADR-008).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: lint + test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:

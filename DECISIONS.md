@@ -96,3 +96,39 @@ Status values: **Proposed**, **Accepted**, **Superseded by ADR-NNN**.
   shot noise; (c) fewer seeds per noisy cell (must stay ≥ 30 per the plan).
 - **To decide:** benchmark per-evaluation wall time for each N and method, then fix the
   restriction here.
+
+## ADR-008: Zero-cost constraint
+
+- **Status:** Accepted (2026-10-13)
+- **Context:** The project must be completed entirely free of cost (user requirement).
+- **Decision and how each cost is avoided:**
+  - **Software:** every dependency is open source and installed from PyPI.
+  - **Quantum execution:** local Qiskit Aer simulation only. `qiskit-ibm-runtime` is used only for
+    its offline fake backends (noise models), which need no IBM account. Real quantum hardware is
+    out of scope (PROJECT_PLAN.md §2). Changing that would need a new ADR showing it stays free.
+  - **Compute:** the experiments run on the developer's laptop. No paid cloud compute. This is
+    one reason the noisy grid must be restricted (ADR-007).
+  - **CI:** the repository is public. GitHub Actions on standard GitHub-hosted runners is free
+    for public repositories. The workflow also sets `concurrency` (cancels superseded runs) and
+    `timeout-minutes` as a safeguard. If the repo is ever made private, Actions minutes become
+    metered (and Windows runners count at a higher rate), so revisit this ADR first.
+  - **Market data:** `yfinance`, a free, unofficial wrapper around Yahoo Finance. It has no
+    service guarantee and may be rate-limited or change. Mitigations: download once, cache
+    locally under `data/`, and record the download date and a checksum. Raw data is gitignored
+    and not redistributed in the public repo. The code that regenerates it is.
+  - **Dashboard:** runs locally with `streamlit run`. Public hosting, if wanted, would use a free
+    tier; not committed to here.
+
+## ADR-009: Keep the working copy outside OneDrive
+
+- **Status:** Accepted (2026-10-13)
+- **Context:** The repo was first created under `OneDrive\Desktop`. OneDrive syncs every file,
+  including the ~100-package `.venv`. That is slow and can lock files. It also tagged uv's shared
+  cache files. The next environment build then failed with
+  `os error 396: The cloud operation cannot be performed on a file with incompatible hardlinks`,
+  because uv installs packages by hardlinking from that cache.
+- **Decision:** The working copy lives at `C:\Users\yuvra\dev\nisq-folio`, which is not
+  synced by OneDrive. GitHub is the backup. After the move, the uv cache was cleared (`uv cache clean`)
+  and the environment rebuilt from `uv.lock`.
+- **Consequences:** Nothing in the code depends on the location (CLAUDE.md rule 3: no hardcoded
+  paths). Anyone cloning on Windows should avoid OneDrive-synced folders (noted in README).

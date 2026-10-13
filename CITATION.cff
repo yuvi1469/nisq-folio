@@ -6,12 +6,12 @@ authors:
   - family-names: Guliani
     given-names: Yuvaraj
     email: yuvaraj.bs24dmu057@spjain.org
-    # affiliation: "S P Jain School of Global Management"  # inferred from email domain; confirm, then uncomment
+    affiliation: "S P Jain School of Global Management"
     # orcid: "https://orcid.org/0000-0000-0000-0000"  # add if you have one
 version: 0.1.0
 date-released: 2026-10-13
 license: MIT
-# repository-code: "https://github.com/<user>/nisq-folio"  # fill in once the remote exists
+repository-code: "https://github.com/yuvi1469/nisq-folio"
 keywords:
   - quantum computing
   - QAOA
