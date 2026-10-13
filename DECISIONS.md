@@ -140,3 +140,89 @@ The first CI run passed, but GitHub announced that `ubuntu-latest` moves to Ubun
 Since `*-latest` labels can change without any commit, CI now pins `ubuntu-24.04` and
 `windows-2025`. It uses `actions/checkout@v7` and `astral-sh/setup-uv@v10.3.0` (both node24; setup-uv has no moving major tag, so it is pinned exactly),
 and pins uv `0.12.17` to match local development. Upgrades happen deliberately, in a commit.
+
+## ADR-010: The 30-stock universe
+
+- **Status:** Accepted (2026-10-13). Proposed by Claude; the user delegated the choice. Easy to revise:
+  the list lives only in `configs/base.yaml`, and the cache key changes automatically.
+- **Decision:** 5 stocks in each of 6 GICS sectors:
+
+  | Sector | Tickers |
+  |---|---|
+  | Information Technology | AAPL, MSFT, NVDA, CSCO, ORCL |
+  | Health Care | JNJ, UNH, PFE, MRK, ABT |
+  | Financials | JPM, BAC, WFC, GS, MS |
+  | Energy | XOM, CVX, COP, SLB, EOG |
+  | Consumer Staples | PG, KO, PEP, WMT, COST |
+  | Industrials | CAT, UNP, HON, LMT, UPS |
+
+- **Selection rules (applied by hand):** large, liquid US companies, continuously listed under the
+  same ticker for the whole window (2015-01-01 to 2023-12-31). Excluded on purpose:
+  - Tickers that changed during the window (e.g. FB→META in 2022).
+  - Mergers that redefine the company (e.g. UTX→RTX in 2020).
+  - Stocks moved between sectors by the March 2023 GICS reclassification (e.g. V, MA moved IT→Financials).
+  - Six sectors with five names each keeps sectors balanced.
+- **Verification (actual results, 2026-10-13):**
+  - The download returned all 30 tickers, 2,264 trading days from 2015-01-02 to 2023-12-29, with
+    zero missing values.
+  - All 30 sector labels match Yahoo Finance's own sector field. Yahoo uses its own
+    names (e.g. "Consumer Defensive" for Consumer Staples), not GICS, so this is a consistency
+    check, not an official GICS confirmation.
+- **Known limitation: survivorship and hindsight bias.** Every name was chosen in 2026 knowing that it
+  survived and stayed large through 2023. Absolute returns of this universe are therefore biased upward
+  compared with what an investor in 2015 could have picked. This matters less for our research
+  question, because every solver sees the same inputs. But all results must be described as "on this
+  universe", not as evidence about the market in general.
+
+## ADR-011: Market data source, adjustment, caching and reproducibility
+
+- **Status:** Accepted (2026-10-13)
+- **Source:** Yahoo Finance via `yfinance` with `auto_adjust=True` (daily closes adjusted for splits and
+  dividends). Free (ADR-008), but unofficial: no service guarantee, possible rate limits, and the API may
+  change.
+- **Window semantics:** yfinance treats `end` as exclusive. `fetch_yfinance` adds one day, so the config's
+  `end_date` is inclusive.
+- **Validation:** a download is rejected, not repaired, if it has any of:
+  - wrong or missing tickers;
+  - duplicate or unsorted dates;
+  - dates outside the window;
+  - any missing value;
+  - any non-positive or non-finite price.
+
+  Filling gaps would silently give assets different sample periods, which biases the covariance.
+- **Returns:** simple returns r_t = P_t/P_{t-1} − 1, because portfolio simple return is linear in weights.
+  μ and Σ are annualized with A = 252 (sample covariance, ddof = 1). Implemented in `data/returns.py`.
+- **Cache and provenance:** prices are stored as `data/prices_<key>.parquet` with a JSON sidecar. The key is
+  the first 12 hex characters of a SHA-256 over (tickers in order, start, end). The sidecar records the
+  request, actual first and last dates, row count, download time (UTC), yfinance version, git commit,
+  a dirty flag, and the SHA-256 of the Parquet file. The checksum is verified on every load.
+- **Reproducibility caveat (stated honestly):** Yahoo rescales the whole adjusted history whenever a later
+  dividend or split occurs, and it rounds prices. So a download made on a different day will not be
+  byte-identical, and its SHA-256 will differ. Returns are invariant to a constant rescaling (property-tested in
+  `test_returns_invariant_to_rescaling_prices`), so re-downloads should give the same returns up to
+  rounding, but this is not guaranteed by the source. Raw Yahoo data is not redistributed in this public
+  repo (data/ is gitignored). Reported results will cite the download date and checksum of the snapshot used.
+- **Not decided here:** an in-sample / out-of-sample split for evaluating selected portfolios. That goes in a
+  later ADR, before results are generated.
+
+## ADR-012: Property-based testing with Hypothesis, run deterministically
+
+- **Status:** Accepted (2026-10-13)
+- **Decision:** add `hypothesis~=6.169.0` to the dev dependency group (free and open source). `tests/conftest.py`
+  loads a profile with `derandomize=True`, so every run on every machine generates the same examples.
+- **Reasoning:** CLAUDE.md rule 9 asks for meaningful property-based tests. Examples so far:
+  - Returns compound back to the total price change.
+  - Returns are invariant to price rescaling.
+  - Σ is symmetric positive semidefinite and equals 252 × `np.cov`.
+  - μ and Σ permute together with the assets.
+
+  Derandomization keeps rule 1 (fixed seeds): a failure in CI reproduces locally. No global RNG state is set.
+
+## ADR-013: Config paths resolve relative to the config file
+
+- **Status:** Accepted (2026-10-13)
+- **Decision:** relative paths inside a YAML config are resolved against the directory containing that file,
+  so `configs/base.yaml` uses `../data` and `../results`. They are never resolved against the current working directory.
+- **Reasoning:** results must not depend on where a command was launched from (CLAUDE.md rule 3). This
+  replaces the "relative to the repository root" comment in the original scaffold, which code could not
+  enforce without guessing where the root is.

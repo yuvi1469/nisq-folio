@@ -18,6 +18,7 @@ dist/
 
 # Tooling caches
 .pytest_cache/
+.hypothesis/
 .ruff_cache/
 .coverage
 .coverage.*

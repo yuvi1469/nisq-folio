@@ -1,7 +1,7 @@
 # NISQ-Folio
 
-> **Status: scaffolding.** No finance or quantum logic is implemented yet. See
-> [PROJECT_PLAN.md](PROJECT_PLAN.md) for scope and milestones.
+> **Status: Week 2 of 14.** The data pipeline is implemented; solvers and quantum components
+> are not yet. See [PROJECT_PLAN.md](PROJECT_PLAN.md) for scope and milestones.
 
 ## Overview
 
@@ -35,9 +35,15 @@ outside OneDrive-synced folders such as Desktop and Documents (see DECISIONS.md 
 ## Quickstart
 
 ```bash
-uv run pytest
-uv run ruff check .
+uv run pytest        # tests (no network access needed)
+uv run ruff check .  # lint
+
+# Download (first run) or load from cache the 30-stock universe, and print a summary:
+uv run python -m nisq_folio.data --config configs/base.yaml
 ```
+
+The first data run downloads about 2,264 trading days for 30 tickers from Yahoo Finance into
+`data/` (gitignored). Later runs read the checksummed cache. Add `--refresh` to re-download.
 
 _Experiment entry points will be documented here once implemented._
 
@@ -45,6 +51,8 @@ _Experiment entry points will be documented here once implemented._
 
 ```
 src/nisq_folio/
+  config.py     YAML config loading and validation
+  provenance.py git commit / dirty-state capture for every artifact
   data/         market data download, caching, returns and covariance inputs
   denoise/      random-matrix-theory covariance denoising
   qubo/         QUBO / Ising encoding of the cardinality-constrained problem

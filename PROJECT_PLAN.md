@@ -23,7 +23,7 @@ exact comparison metric is fixed in an ADR before any results are generated (Mil
 
 | Item | Value |
 |---|---|
-| Universe | 30 US stocks across 6 sectors (ticker list: TBD, to be fixed in an ADR) |
+| Universe | 30 US stocks across 6 sectors, 5 each (ADR-010; list in `configs/base.yaml`) |
 | Historical window | 2015-01-01 to 2023-12-31 (daily) |
 | Problem sizes | N ∈ {8, 10, 12, 14} assets |
 | Cardinality | K = N/2 (i.e. 4, 5, 6, 7) |
@@ -59,8 +59,8 @@ restriction and simulation method will be finalized in ADR-007 after a runtime b
 
 | Week | Milestone | Deliverable |
 |---|---|---|
-| W1 | Scaffolding, environment, CI | This repo; green CI |
-| W2 | Data pipeline | `data/`: ticker list ADR, download + cache, returns, covariance; tests |
+| W1 ✅ | Scaffolding, environment, CI | This repo; green CI |
+| W2 ✅ | Data pipeline | `data/`: ticker list ADR, download + cache, returns, covariance; tests |
 | W3 | Classical baselines | `baselines/`: all four solvers, validated against brute force on small N |
 | W4 | QUBO + noise benchmark | `qubo/` with penalty-weight ADR; noisy-simulation runtime benchmark → finalize ADR-007 |
 | W5 | QAOA core | `qaoa/` with X mixer, noiseless; metric definitions ADR |
