@@ -138,5 +138,5 @@ Status values: **Proposed**, **Accepted**, **Superseded by ADR-NNN**.
 The first CI run passed, but GitHub announced that `ubuntu-latest` moves to Ubuntu 26 from
 2026-10-19. It also warned that `actions/checkout@v4` / `setup-uv@v6` run on deprecated Node 20.
 Since `*-latest` labels can change without any commit, CI now pins `ubuntu-24.04` and
-`windows-2025`. It uses `actions/checkout@v7` and `astral-sh/setup-uv@v10` (both node24),
+`windows-2025`. It uses `actions/checkout@v7` and `astral-sh/setup-uv@v10.3.0` (both node24; setup-uv has no moving major tag, so it is pinned exactly),
 and pins uv `0.12.17` to match local development. Upgrades happen deliberately, in a commit.
