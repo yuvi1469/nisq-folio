@@ -72,6 +72,49 @@ class BaselinesConfig:
 
 
 @dataclass(frozen=True)
+class QuboConfig:
+    """Settings for the QUBO encoding.
+
+    Attributes:
+        penalty_margin: Relative margin on the provable penalty bound (ADR-017).
+    """
+
+    penalty_margin: float
+
+
+# Must match nisq_folio.noise.benchmark.BENCHMARK_METHODS (checked by a test); duplicated here so
+# that loading a config does not import Qiskit.
+NOISE_BENCHMARK_METHODS = ("ideal_statevector", "statevector", "density_matrix")
+
+
+@dataclass(frozen=True)
+class NoiseBenchmarkConfig:
+    """Settings for the noisy-simulation runtime benchmark (ADR-007).
+
+    Attributes:
+        backend: Fake backend class name.
+        sizes: Problem sizes N to time (even).
+        layers: QAOA depths p to time.
+        shots: Shots per energy evaluation.
+        repeats: Timed repetitions per case.
+        methods: Simulation methods to time.
+        optimization_level: Transpiler optimization level, 0-3.
+        max_seconds_per_run: Stop timing larger N for a method once it exceeds this.
+        max_memory_mb: Aer memory cap.
+    """
+
+    backend: str
+    sizes: tuple[int, ...]
+    layers: tuple[int, ...]
+    shots: int
+    repeats: int
+    methods: tuple[str, ...]
+    optimization_level: int
+    max_seconds_per_run: float
+    max_memory_mb: int
+
+
+@dataclass(frozen=True)
 class Config:
     """Validated project configuration.
 
@@ -83,6 +126,8 @@ class Config:
         source_path: Absolute path of the YAML file this config was loaded from.
         problem: Problem settings, or ``None`` if the file has no ``problem`` section.
         baselines: Baseline settings, or ``None`` if the file has no ``baselines`` section.
+        qubo: QUBO settings, or ``None`` if the file has no ``qubo`` section.
+        noise_benchmark: Benchmark settings, or ``None`` if absent.
     """
 
     data_dir: Path
@@ -92,6 +137,20 @@ class Config:
     source_path: Path
     problem: ProblemConfig | None = None
     baselines: BaselinesConfig | None = None
+    qubo: QuboConfig | None = None
+    noise_benchmark: NoiseBenchmarkConfig | None = None
+
+    def require_qubo(self) -> QuboConfig:
+        """Return the ``qubo`` section, raising ConfigError if the file has none."""
+        if self.qubo is None:
+            raise ConfigError(f"{self.source_path}: this command needs a 'qubo' section")
+        return self.qubo
+
+    def require_noise_benchmark(self) -> NoiseBenchmarkConfig:
+        """Return the ``noise_benchmark`` section, raising ConfigError if the file has none."""
+        if self.noise_benchmark is None:
+            raise ConfigError(f"{self.source_path}: this command needs a 'noise_benchmark' section")
+        return self.noise_benchmark
 
     def require_problem(self) -> ProblemConfig:
         """Return the ``problem`` section, raising ConfigError if the file has none."""
@@ -138,6 +197,19 @@ def load_config(path: Path | str) -> Config:
     baselines = None
     if "baselines" in raw:
         baselines = _parse_baselines(_require(raw, "baselines", dict, source), source)
+    qubo = None
+    if "qubo" in raw:
+        margin = _require(
+            _require(raw, "qubo", dict, source), "penalty_margin", (int, float), source
+        )
+        if isinstance(margin, bool) or margin <= 0:
+            raise ConfigError(f"{source}: penalty_margin must be > 0, got {margin!r}")
+        qubo = QuboConfig(penalty_margin=float(margin))
+    noise_benchmark = None
+    if "noise_benchmark" in raw:
+        noise_benchmark = _parse_noise_benchmark(
+            _require(raw, "noise_benchmark", dict, source), len(universe.tickers), source
+        )
 
     return Config(
         data_dir=(base_dir / _require(paths, "data_dir", str, source)).resolve(),
@@ -147,6 +219,47 @@ def load_config(path: Path | str) -> Config:
         source_path=source,
         problem=problem,
         baselines=baselines,
+        qubo=qubo,
+        noise_benchmark=noise_benchmark,
+    )
+
+
+def _parse_noise_benchmark(
+    raw: dict[str, Any], n_assets: int, source: Path
+) -> NoiseBenchmarkConfig:
+    def positive_ints(key: str, even: bool = False) -> tuple[int, ...]:
+        values = _require(raw, key, list, source)
+        for v in values:
+            ok = isinstance(v, int) and not isinstance(v, bool) and v >= 1
+            if not ok or (even and (v % 2 or v > n_assets)):
+                raise ConfigError(f"{source}: invalid value {v!r} in noise_benchmark.{key}")
+        if not values:
+            raise ConfigError(f"{source}: noise_benchmark.{key} must not be empty")
+        return tuple(values)
+
+    def positive(key: str, kind: type | tuple[type, ...]) -> Any:  # noqa: ANN401
+        value = _require(raw, key, kind, source)
+        if isinstance(value, bool) or value <= 0:
+            raise ConfigError(f"{source}: noise_benchmark.{key} must be > 0, got {value!r}")
+        return value
+
+    methods = tuple(_require(raw, "methods", list, source))
+    unknown = [m for m in methods if m not in NOISE_BENCHMARK_METHODS]
+    if unknown or not methods:
+        raise ConfigError(f"{source}: unknown or missing noise_benchmark.methods: {unknown}")
+    level = _require(raw, "optimization_level", int, source)
+    if isinstance(level, bool) or not 0 <= level <= 3:
+        raise ConfigError(f"{source}: optimization_level must be 0-3, got {level!r}")
+    return NoiseBenchmarkConfig(
+        backend=_require(raw, "backend", str, source),
+        sizes=positive_ints("sizes", even=True),
+        layers=positive_ints("layers"),
+        shots=positive("shots", int),
+        repeats=positive("repeats", int),
+        methods=methods,
+        optimization_level=level,
+        max_seconds_per_run=float(positive("max_seconds_per_run", (int, float))),
+        max_memory_mb=positive("max_memory_mb", int),
     )
 
 

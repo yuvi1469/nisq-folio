@@ -17,6 +17,7 @@ import numpy as np
 # or previously reported results stop being reproducible; only append new ones.
 STREAM_INSTANCES = 0
 STREAM_SIMULATED_ANNEALING = 1
+STREAM_NOISE_BENCHMARK = 2
 
 
 def child_rng(root_seed: int, *keys: int) -> np.random.Generator:

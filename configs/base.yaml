@@ -39,3 +39,19 @@ baselines:
     initial_acceptance: 0.8
     final_temperature_ratio: 0.001
     n_calibration_moves: 100
+
+# QUBO encoding (DECISIONS.md ADR-017): P = (1 + margin) * provable per-cardinality bound.
+qubo:
+  penalty_margin: 0.01
+
+# Runtime benchmark for noisy simulation (DECISIONS.md ADR-007, ADR-018).
+noise_benchmark:
+  backend: FakeKingston
+  sizes: [8, 10, 12, 14]
+  layers: [1, 2]
+  shots: 1024
+  repeats: 3
+  methods: [ideal_statevector, statevector, density_matrix]
+  optimization_level: 3
+  max_seconds_per_run: 300
+  max_memory_mb: 6000
