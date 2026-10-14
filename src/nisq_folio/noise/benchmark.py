@@ -46,6 +46,8 @@ class BenchmarkSettings:
         optimization_level: Qiskit transpiler optimization level (0-3).
         max_memory_mb: Aer memory cap; larger simulations are refused instead of swapping.
         penalty_margin: Margin for the QUBO penalty rule (ADR-017).
+        max_seconds_per_run: Stop repeating a case as soon as one run takes longer than this
+            (flagged ``exceeded_time_limit``); the default never stops early.
     """
 
     backend: str
@@ -54,6 +56,7 @@ class BenchmarkSettings:
     optimization_level: int
     max_memory_mb: int
     penalty_margin: float
+    max_seconds_per_run: float = float("inf")
 
 
 def bound_qaoa_circuit(
@@ -92,8 +95,10 @@ def benchmark_case(
         seed: Used for ``seed_transpiler`` and ``seed_simulator`` (CLAUDE.md rule 1).
 
     Returns:
-        A JSON-serializable record: status (``"ok"`` or ``"refused"`` with the error message),
-        transpiled depth and two-qubit gate count, and per-repeat and median seconds.
+        A JSON-serializable record: status (``"ok"``, or ``"refused"`` with the error message),
+        transpiled depth and two-qubit gate count, per-repeat and median seconds, and
+        ``exceeded_time_limit`` (True if a run took longer than ``max_seconds_per_run``, in
+        which case the remaining repeats were skipped).
     """
     if method not in BENCHMARK_METHODS:
         raise ValueError(f"method must be one of {BENCHMARK_METHODS}, got {method!r}")
@@ -125,7 +130,14 @@ def benchmark_case(
             record.update(status="refused", error=str(result.status))
             return record
         record["seconds"].append(elapsed)
-    record.update(status="ok", median_seconds=float(np.median(record["seconds"])))
+        if elapsed > settings.max_seconds_per_run:
+            break  # one run already exceeds the budget; repeating it only costs more time
+    exceeded = max(record["seconds"]) > settings.max_seconds_per_run
+    record.update(
+        status="ok",
+        median_seconds=float(np.median(record["seconds"])),
+        exceeded_time_limit=exceeded,
+    )
     return record
 
 

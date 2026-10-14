@@ -57,6 +57,7 @@ def main(argv: Sequence[str] | None = None, fetcher: PriceFetcher = fetch_yfinan
         optimization_level=bench.optimization_level,
         max_memory_mb=bench.max_memory_mb,
         penalty_margin=config.require_qubo().penalty_margin,
+        max_seconds_per_run=bench.max_seconds_per_run,
     )
     git = git_state(config.source_path.parent)
     u = config.universe
@@ -66,7 +67,9 @@ def main(argv: Sequence[str] | None = None, fetcher: PriceFetcher = fetch_yfinan
     in_sample, _ = split_returns(simple_returns(prices), problem_cfg.in_sample_end)
 
     cases: list[dict[str, Any]] = []
-    stopped: set[tuple[str, int]] = set()
+    # (n, layers) at which each method first exceeded the time or memory limit. Cost only grows
+    # with N and with depth p, so any case with N >= n and p >= layers would exceed it too.
+    limits_hit: dict[str, list[tuple[int, int]]] = {m: [] for m in bench.methods}
     print(f"backend {bench.backend}, {bench.shots} shots, median of {bench.repeats} repeats")
     print(f"{'N':>3} {'p':>2}  {'method':<18}{'depth':>7}{'2q gates':>9}{'seconds':>10}  status")
     for n in bench.sizes:
@@ -76,20 +79,23 @@ def main(argv: Sequence[str] | None = None, fetcher: PriceFetcher = fetch_yfinan
             rng = child_rng(config.seed, STREAM_NOISE_BENCHMARK, n, layers)
             circuit = bound_qaoa_circuit(problem, layers, rng, settings.penalty_margin)
             for method in bench.methods:
-                if (method, layers) in stopped:
+                hits = limits_hit[method]
+                if any(n0 < n and p0 <= layers for n0, p0 in hits):
                     case = {"method": method, "status": "skipped (smaller N exceeded limits)"}
+                elif any(n0 == n and p0 < layers for n0, p0 in hits):
+                    case = {"method": method, "status": "skipped (shallower depth exceeded limits)"}
                 else:
                     seed = int(rng.integers(2**31))
                     case = benchmark_case(circuit, method, settings, seed)
-                    too_slow = case.get("median_seconds", 0.0) > bench.max_seconds_per_run
-                    if case["status"] != "ok" or too_slow:
-                        stopped.add((method, layers))
+                    if case["status"] != "ok" or case["exceeded_time_limit"]:
+                        hits.append((n, layers))
                 case.update(n=n, layers=layers)
                 cases.append(case)
                 secs = f"{case['median_seconds']:.3f}" if "median_seconds" in case else "-"
                 print(
                     f"{n:>3} {layers:>2}  {method:<18}{case.get('depth', '-'):>7}"
-                    f"{case.get('two_qubit_gates', '-'):>9}{secs:>10}  {case['status']}"
+                    f"{case.get('two_qubit_gates', '-'):>9}{secs:>10}  {case['status']}",
+                    flush=True,
                 )
 
     results = {
