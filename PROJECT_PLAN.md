@@ -51,9 +51,14 @@ from the universe) are shared across all cells, so comparisons are paired.
 
 The full grid is approximately **4,300 optimizations**. Noisy QAOA simulation cost grows
 steeply with qubit count: exact density-matrix simulation needs 4^N entries, about 4.3 GB at
-N=14 (see ADR-007). **Noisy optimization will therefore be restricted to smaller N.** The exact
-restriction and simulation method will be finalized in ADR-007 after a runtime benchmark
-(Milestone W4). Noiseless runs and classical baselines are expected to cover all N.
+N=14 (see ADR-007). **Decided in W4 from a measured benchmark (ADR-018, ADR-007 resolution):**
+noisy optimization runs at N ∈ {8, 10, 12} with exact density-matrix simulation. One noisy
+N=14 evaluation took 7.1 hours on this laptop. N=14 is therefore noiseless only. Noiseless runs
+and classical baselines cover all N.
+
+The number of noisy factor levels must fit an explicit laptop-hour budget. At about 100
+evaluations per optimization, one 30-seed noisy cell costs roughly 1.6 h (N=8), 1.7 h (N=10)
+and 6.6 h (N=12). The budget and the resulting noisy grid are fixed in an ADR before W12.
 
 ## 5. Milestones (14 weeks)
 
@@ -62,7 +67,7 @@ restriction and simulation method will be finalized in ADR-007 after a runtime b
 | W1 ✅ | Scaffolding, environment, CI | This repo; green CI |
 | W2 ✅ | Data pipeline | `data/`: ticker list ADR, download + cache, returns, covariance; tests |
 | W3 ✅ | Classical baselines | `baselines/`: all four solvers, validated against brute force on small N |
-| W4 | QUBO + noise benchmark | `qubo/` with penalty-weight ADR; noisy-simulation runtime benchmark → finalize ADR-007 |
+| W4 ✅ | QUBO + noise benchmark | `qubo/` with penalty-weight ADR; noisy-simulation runtime benchmark → finalize ADR-007 |
 | W5 | QAOA core | `qaoa/` with X mixer, noiseless; metric definitions ADR |
 | W6 | Mixers | `mixers/`: constraint-preserving + adaptive mixers |
 | W7 | RMT denoising | `denoise/`: Marchenko–Pastur clipping; property tests (PSD, trace preservation) |

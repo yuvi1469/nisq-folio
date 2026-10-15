@@ -85,7 +85,7 @@ Status values: **Proposed**, **Accepted**, **Superseded by ADR-NNN**.
 
 ## ADR-007: Restrict noisy optimization to smaller N
 
-- **Status:** Proposed. **Decision pending.** Needs a measured runtime benchmark (Milestone W4).
+- **Status:** Accepted (2026-10-15). See "ADR-007 resolution" below (noisy N ∈ {8, 10, 12}).
 - **Context:** One qubit per asset, so N ∈ {8, 10, 12, 14} means 8–14 qubits. An exact
   density-matrix noisy simulation stores 4^N complex128 entries (16 bytes each):
   N=10 → ~16.8 MB, N=12 → ~268 MB, N=14 → ~4.3 GB per density matrix. Each cost evaluation
@@ -354,3 +354,104 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
     weights are unequal, so "largest K weights" is not the same as "best equal-weight K-subset".
   - This is a known weakness of relax-and-round. It is a fair baseline, not a bug: its continuous
     solution passes the KKT checks in the tests.
+
+## ADR-017: QUBO encoding and the penalty weight P
+
+- **Status:** Accepted (2026-10-15)
+- **Encoding** (`qubo/encoding.py`): E(x) = f(x) + P(1ᵀx − K)² = xᵀQx + c, with
+  Q = aΣ + P·11ᵀ + diag(−bμ − 2PK) and c = PK². The Ising form uses x = (1 − z)/2, and
+  `IsingModel.to_sparse_pauli_op()` gives the Qiskit cost Hamiltonian.
+  - Convention: qubit measured 1 ⇔ z = −1 ⇔ asset selected; little-endian, matching Qiskit.
+  - Tests check that QUBO, Ising and the Pauli-operator diagonal agree on every bitstring.
+    Measured disagreement on a real N = 10 instance is ≤ 3×10⁻¹⁵.
+- **Penalty rule** (`qubo/penalty.py`): P = 1.01 · max over m ≠ K of (f_greedy − L_m)/(m − K)², where
+  L_m = a·λ_min(Σ)·m − b·(sum of the m largest μᵢ) lower-bounds f over all selections of size m.
+  - This **provably** makes the QUBO's global minimum equal the constrained optimum (proof in the
+    module docstring). A property test checks it on random problems, including non-PSD Σ.
+  - It uses only cheap quantities: the greedy solution, an eigenvalue, and a sort. It never uses
+    the optimum.
+- **Alternatives rejected:**
+  - A single global lower bound gave a looser P (8–16× the minimum).
+  - Calibrating P from the brute-force optimum (`minimal_exact_penalty`) would hand QAOA
+    knowledge of the answer that no classical baseline gets. That function is kept for
+    analysis only.
+- **Measured (clean commit `11c5f23`, 50 instances per N, λ = 4.5):**
+
+  | N | QUBO exact | P / P_exact (median, p10–p90) | P / (f_worst − f*) median |
+  |---|---|---|---|
+  | 8 | 50/50 | 6.85 (4.67–9.40) | 0.77 |
+  | 10 | 50/50 | 8.32 (6.41–10.96) | 0.68 |
+  | 12 | 50/50 | 10.38 (6.78–13.56) | 0.70 |
+  | 14 | 50/50 | 11.20 (8.79–13.16) | 0.64 |
+
+- **Known consequence (to be measured, not assumed):** P is about 7–11× larger than strictly
+  necessary. One unit of constraint violation costs about 0.6–0.8× the whole feasible objective
+  range. For X-mixer QAOA, which explores infeasible states, a large penalty can compress the
+  differences between good feasible solutions relative to the overall energy scale. Its effect on
+  QAOA quality is to be measured in W5. Constraint-preserving (XY) mixers stay in the feasible
+  subspace, where the penalty is identically zero, so they are unaffected.
+
+## ADR-018: Noisy-simulation runtime benchmark
+
+- **Status:** Accepted (2026-10-15)
+- **Setup** (`python -m nisq_folio.noise`; run record
+  `results/noise_benchmark/20261015T100806Z_11c5f23.json`, clean commit `11c5f23`):
+  - One seeded real instance per N; depth-p QAOA with the ADR-017 QUBO.
+  - Reference device FakeKingston: IBM Heron r2, 156 qubits, median CZ error 1.8×10⁻³ from its
+    stored calibration snapshot. The reference device and noise levels are revisited in W8.
+  - Noisy circuits transpiled at optimization level 3 onto the device's heavy-hex coupling map.
+  - Time for **one energy evaluation**: one run with 1,024 shots, median of 3.
+  - Machine: Intel i7-1165G7, 4 cores / 8 threads, 15.7 GB RAM, Windows 11; qiskit 2.5.2 and
+    qiskit-aer 0.17.2. Wall times are specific to this machine.
+- **Results (seconds per evaluation):**
+
+  | N | p | Noiseless | Noisy trajectories | Noisy density matrix | 2q gates after routing (logical) |
+  |---|---|---|---|---|---|
+  | 8 | 1 | 0.004 | 1.92 | 1.87 | 101 (28) |
+  | 8 | 2 | 0.005 | 2.69 | 2.08 | 209 (56) |
+  | 10 | 1 | 0.006 | 3.62 | 2.03 | 165 (45) |
+  | 10 | 2 | 0.008 | 5.26 | 2.51 | 329 (90) |
+  | 12 | 1 | 0.010 | 10.46 | 7.86 | 209 (66) |
+  | 12 | 2 | 0.015 | 18.00 | 13.14 | 415 (132) |
+  | 14 | 1 | 0.027 | 49.74 | **25,554** (7.1 h) | 333 (91) |
+  | 14 | 2 | 0.031 | 134.3 | not run (p = 1 already over the limit) | — |
+
+- **Observations:**
+  - **Routing:** IBM's sparse heavy-hex connectivity multiplies the two-qubit gate count by
+    about 3–4× relative to the all-to-all logical circuit. That raises both runtime and
+    accumulated noise.
+  - **N = 14, exact density matrix:** the density matrix needs 4.0 GiB (14 active qubits for this
+    seed; other transpiler seeds gave 15 active qubits, which would need about 16 GiB). Only about
+    5.6 GB was free, so the 7.1-hour time very likely includes memory pressure. This could not be
+    confirmed after the fact. Either way it is unusable.
+  - **Benchmark design flaw found and fixed:** a run cannot be interrupted once started, so the
+    time cap can only skip *later* cases. Because of that, this single case made the benchmark
+    take more than 7 hours.
+
+## ADR-007 resolution (2026-10-15): noisy optimization restricted to N ∈ {8, 10, 12}
+
+- **Status of ADR-007:** Accepted, based on ADR-018.
+- **Decision:**
+  - Noisy QAOA optimization runs at **N ∈ {8, 10, 12}**, using the **density-matrix** method.
+    It is the fastest noisy method at these sizes, and its noise is exact, with no
+    trajectory-sampling error.
+  - **N = 14 runs noiseless only.**
+  - Noiseless runs and classical baselines cover all N ∈ {8, 10, 12, 14}.
+- **Why N = 14 is excluded:**
+  - The exact density matrix is infeasible: 7.1 h per evaluation.
+  - Trajectories take 50–134 s per evaluation. At about 100 evaluations per optimization (the
+    optimizer is fixed in W5), that is 1.4–3.7 h per optimization, or **41–112 h per 30-seed
+    cell**. That is unaffordable for any meaningful number of noisy cells.
+- **Budget model for fixing the noisy grid (W8–W9):**
+  total hours ≈ Σ over cells of (30 seeds × E evaluations × t_eval(N, p)) / 3600.
+  - With E = 100, p = 1 and the times above, **one 30-seed noisy cell costs about 1.6 h at N = 8,
+    1.7 h at N = 10 and 6.6 h at N = 12**. These are upper estimates. W8's parameterized noise
+    model and running several small simulations in parallel processes may reduce them; to be
+    measured, not assumed.
+  - Example: 12 noisy cells per N (e.g. 2 denoising × 2 mixers × 3 noise levels) × 30 seeds would
+    cost ≈ 19 + 20 + 79 ≈ **118 laptop-hours**.
+  - The number of noisy factor levels must therefore be chosen to fit an explicit compute budget,
+    recorded in an ADR before the noisy grid runs.
+- **Consequence for the research question:** the noise crossover is estimated from three sizes
+  (8, 10, 12). That is enough to see a trend in N, but extrapolation beyond N = 12 must be stated as
+  extrapolation.

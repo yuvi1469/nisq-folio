@@ -1,7 +1,8 @@
 # NISQ-Folio
 
-> **Status: Week 3 of 14.** The data pipeline, problem definition, and four classical baselines
-> are implemented and validated; quantum components are not yet. See [PROJECT_PLAN.md](PROJECT_PLAN.md) for scope and milestones.
+> **Status: Week 4 of 14.** Data pipeline, problem definition, four validated classical
+> baselines, the QUBO/Ising encoding, a basic QAOA circuit, and a noisy-simulation runtime
+> benchmark are implemented. QAOA optimization is next. See [PROJECT_PLAN.md](PROJECT_PLAN.md) for scope and milestones.
 
 ## Overview
 
@@ -43,7 +44,13 @@ uv run python -m nisq_folio.data --config configs/base.yaml
 
 # Validate the classical baselines against the exact optimum (writes a run record to results/):
 uv run python -m nisq_folio.baselines --config configs/base.yaml
+
+# Noisy-simulation runtime benchmark (slow: see DECISIONS.md ADR-018 before running):
+uv run python -m nisq_folio.noise --config configs/base.yaml
 ```
+
+The runtime benchmark includes noisy N=14 cases that can take hours on a laptop. To skip them,
+remove 14 from `noise_benchmark.sizes` in a copy of the config.
 
 The first data run downloads about 2,264 trading days for 30 tickers from Yahoo Finance into
 `data/` (gitignored). Later runs read the checksummed cache. Add `--refresh` to re-download.
