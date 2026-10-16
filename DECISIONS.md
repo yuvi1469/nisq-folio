@@ -526,3 +526,45 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
     later), then the largest c (closest to the guarantee), then the smallest Δ.
 - **Scope:** X mixer only. The constraint-preserving and adaptive mixers (W6) get their own
   protocol ADR.
+
+### ADR-020 results (2026-10-16): X-mixer QAOA does not beat random feasible guessing
+
+- **Run record:** `results/qaoa_tuning/20261016T004038Z_ccb823e.json`. Clean commit `ccb823e`, which
+  is the commit that pre-registered the rule. 32 configurations × 10 tuning instances × 4 sizes =
+  1,280 noiseless runs, taking 2 min 43 s.
+- **Selected by the rule:** p = 2, c = 0.1 (P = 0.1 × provable bound), Δ = 0.75. The best score
+  belonged to p = 4, c = 0.1, Δ = 0.75 (−0.128 versus −0.148); p = 2 is within the 0.1
+  tolerance, so the rule prefers the shallower circuit.
+- **Selected configuration on the tuning instances:**
+
+  | N | A median [IQR] | A_uniform median | p_feasible median | E[gap] median | evaluations / shots (median) |
+  |---|---|---|---|---|---|
+  | 8 | 0.89 [0.62, 0.99] | 3.24 | 0.24 | 0.80 | 42 / 43,008 |
+  | 10 | 0.77 [0.69, 0.89] | 3.12 | 0.33 | 0.80 | 42 / 42,496 |
+  | 12 | 0.82 [0.75, 1.01] | 3.62 | 0.34 | 0.78 | 38 / 38,912 |
+  | 14 | 0.99 [0.85, 1.03] | 4.73 | 0.33 | 0.78 | 39 / 39,936 |
+
+- **Findings (stated as measured):**
+  1. **Noiseless X-mixer QAOA with a legitimately chosen penalty puts *less* probability on the
+     optimum than uniformly guessing a valid selection** (median A < 1 at every N). Only 6% of all
+     1,280 runs exceeded A = 1. The maximum was 5.82, so amplification is possible but not typical
+     under this protocol.
+  2. It does beat uniformly random *bitstrings* by 3–5×, mostly by learning feasibility: valid
+     selections rise from 25% under uniform to about 33%.
+  3. **Smaller penalties were consistently better** (c = 0.1 dominates the top of the ranking),
+     which confirms the penalty-dominance concern of ADR-017.
+  4. **Optimizer limitation:** COBYLA stopped before its 100-evaluation budget in **100%** of runs
+     (median 47). With shot noise, its trust region shrinks early. The earlier exploratory probe
+     used exact energies and 400 evaluations, and reached A ≈ 5.8 with a small penalty. So part of
+     the shortfall is plausibly the optimizer under shot noise, not QAOA itself. This is a
+     hypothesis, not yet tested.
+- **Consequences:**
+  - For the X mixer, the primary noise crossover (A = 1, ADR-019) is **already crossed without any
+    noise**. Noisy X-mixer cells can still be measured against the secondary bar A_uniform = 1.
+  - This makes the constraint-preserving and adaptive mixers (W6) central. They start in the
+    feasible subspace, where A = 1 holds at zero angles, so any gain shows up directly in the
+    primary metric.
+  - **No post-hoc change was made.** Changing the optimizer after seeing these results would make
+    the tuning rule meaningless. A stronger shot-noise-robust optimizer (e.g. COBYLA with a smaller
+    final trust radius, or SPSA) may be adopted only through a new ADR, labelled post-hoc, and
+    applied identically to every mixer. The ADR-020 X-mixer result above stays reported as is.
