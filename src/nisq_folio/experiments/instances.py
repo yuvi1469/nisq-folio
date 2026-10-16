@@ -65,7 +65,11 @@ def sample_instance_tickers(
 
 
 def build_problem(
-    returns: pd.DataFrame, tickers: Sequence[str], k: int, risk_aversion: float
+    returns: pd.DataFrame,
+    tickers: Sequence[str],
+    k: int,
+    risk_aversion: float,
+    covariance: pd.DataFrame | None = None,
 ) -> PortfolioProblem:
     """Build a problem from the returns of the given tickers.
 
@@ -74,9 +78,15 @@ def build_problem(
         tickers: The instance's assets.
         k: Assets to select.
         risk_aversion: lambda in the objective.
+        covariance: Optional annualized covariance estimated on a larger set of assets (e.g.
+            the RMT-cleaned universe matrix, ADR-022); its ``tickers`` block replaces the
+            sample covariance. mu is always the sample mean.
 
     Returns:
-        The problem, with mu and Sigma annualized from ``returns[tickers]``.
+        The problem, with mu (and, unless ``covariance`` is given, Sigma) annualized from
+        ``returns[tickers]``.
     """
     mu, sigma = annualized_moments(returns.loc[:, list(tickers)])
+    if covariance is not None:
+        sigma = covariance.loc[list(tickers), list(tickers)]
     return PortfolioProblem.from_moments(mu, sigma, k, risk_aversion)

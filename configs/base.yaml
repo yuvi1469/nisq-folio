@@ -71,6 +71,12 @@ mixer_study:
     perturbation: 0.1
     calibration_samples: 5
 
+# Covariance denoising (DECISIONS.md ADR-022). The "RMT" level of the denoising factor is
+# Marchenko-Pastur clipping of the 30-asset universe correlation; instances use its block.
+denoise:
+  experiment_method: rmt_clip
+  evaluation_instances_per_size: 50
+
 # Runtime benchmark for noisy simulation (DECISIONS.md ADR-007, ADR-018).
 noise_benchmark:
   backend: FakeKingston

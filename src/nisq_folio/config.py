@@ -118,6 +118,23 @@ class QaoaConfig:
     tuning: QaoaTuningConfig
 
 
+# Must match the RMT estimators in nisq_folio.denoise.evaluation.ESTIMATORS (checked by a test).
+DENOISE_METHODS = ("rmt_clip", "rmt_band_only")
+
+
+@dataclass(frozen=True)
+class DenoiseConfig:
+    """Covariance denoising settings (ADR-022).
+
+    Attributes:
+        experiment_method: The estimator used as the "RMT" level of the denoising factor.
+        evaluation_instances_per_size: Instances per N in the out-of-sample evaluation.
+    """
+
+    experiment_method: str
+    evaluation_instances_per_size: int
+
+
 # Must match nisq_folio.mixers.variants.MIXERS and nisq_folio.qaoa.optimizers.OPTIMIZERS
 # (checked by a test); duplicated so that loading a config does not import Qiskit.
 STUDY_MIXERS = ("x", "xy_ring", "adapt")
@@ -206,6 +223,13 @@ class Config:
     noise_benchmark: NoiseBenchmarkConfig | None = None
     qaoa: QaoaConfig | None = None
     mixer_study: MixerStudyConfig | None = None
+    denoise: DenoiseConfig | None = None
+
+    def require_denoise(self) -> DenoiseConfig:
+        """Return the ``denoise`` section, raising ConfigError if the file has none."""
+        if self.denoise is None:
+            raise ConfigError(f"{self.source_path}: this command needs a 'denoise' section")
+        return self.denoise
 
     def require_mixer_study(self) -> MixerStudyConfig:
         """Return the ``mixer_study`` section, raising ConfigError if the file has none."""
@@ -290,6 +314,18 @@ def load_config(path: Path | str) -> Config:
     mixer_study = None
     if "mixer_study" in raw:
         mixer_study = _parse_mixer_study(_require(raw, "mixer_study", dict, source), source)
+    denoise = None
+    if "denoise" in raw:
+        section = _require(raw, "denoise", dict, source)
+        method = _require(section, "experiment_method", str, source)
+        if method not in DENOISE_METHODS:
+            raise ConfigError(
+                f"{source}: denoise.experiment_method must be one of {DENOISE_METHODS}"
+            )
+        count = _require(section, "evaluation_instances_per_size", int, source)
+        if isinstance(count, bool) or count < 1:
+            raise ConfigError(f"{source}: denoise.evaluation_instances_per_size must be >= 1")
+        denoise = DenoiseConfig(experiment_method=method, evaluation_instances_per_size=count)
     noise_benchmark = None
     if "noise_benchmark" in raw:
         noise_benchmark = _parse_noise_benchmark(
@@ -308,6 +344,7 @@ def load_config(path: Path | str) -> Config:
         noise_benchmark=noise_benchmark,
         qaoa=qaoa,
         mixer_study=mixer_study,
+        denoise=denoise,
     )
 
 

@@ -655,3 +655,58 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
     noiselessly: noise leaks probability out of the feasible subspace, and the metric counts that
     as failure. The noisy study needs Dicke-state preparation and XY circuits, to be implemented
     and verified in W8.
+
+## ADR-022: RMT covariance denoising and its out-of-sample evaluation (pre-registered)
+
+- **Status:** Accepted (2026-10-16). The method, metrics and prediction were committed before the
+  real-data evaluation ran.
+- **Method** (`denoise/rmt.py`): Marchenko–Pastur eigenvalue clipping of the correlation matrix,
+  after Laloux, Cizeau, Bouchaud & Potters (Phys. Rev. Lett. 83, 1467, 1999) and the review by Bun,
+  Bouchaud & Potters (Physics Reports 666, 2017). **Both references are to be verified before
+  citing in the report.**
+  - With q = N/T and σ² = 1, keep the eigenvalues above λ₊ = (1 + √q)², and replace every other
+    eigenvalue by their mean, which preserves the trace.
+  - Keep the eigenvectors and rescale to unit diagonal.
+  - Rebuild Σ = S·C_clean·S with the sample standard deviations, so only correlations change.
+    μ is never denoised.
+- **Level:** cleaning is done once, on the 30-asset universe's in-sample returns (T = 1,510,
+  q = 0.020, band [0.738, 1.302]), and each instance uses its block. The alternative,
+  instance-level cleaning, would have q ≈ 0.005–0.009. RMT is an N, T → ∞ theory, so the larger
+  matrix is the more defensible place to apply it.
+- **Factor levels for the experiment grid:** "none" = sample covariance; "RMT" = `rmt_clip` (the
+  textbook rule above).
+- **Reference estimators** (reported in this evaluation, not grid factors):
+  - `rmt_band_only` averages only eigenvalues inside [λ₋, λ₊].
+  - `ledoit_wolf` is linear shrinkage from scikit-learn.
+- **Spectrum observed before evaluation:**
+  - 3 eigenvalues lie above the band (15.1, 2.88, 1.33), 2 inside, and **25 below λ₋**.
+  - Eigenvalues below λ₋ cannot be produced by noise of this q, so they indicate genuine
+    (sector) structure.
+  - `rmt_clip` therefore replaces 27 of 30 eigenvalues, which effectively makes it a
+    3-factor model.
+- **Synthetic check that changed the expectation:**
+  - In a one-factor model with *equal* loadings (flat bulk), clipping estimated the population
+    correlation better than the sample on 10 of 10 seeds (error ratio 0.31–0.85).
+  - With *heterogeneous* loadings, where true eigenvalues lie below the band, clipping was
+    **worse than the sample on 9 of 10 seeds**, and band-only was better on 8 of 10.
+  - Both results are pinned as tests (`tests/test_denoise_rmt.py`).
+- **Pre-registered prediction:** because the real spectrum looks like the heterogeneous case,
+  `rmt_clip` may well **not** improve, and could worsen, out-of-sample results relative to the
+  sample covariance. The evaluation decides; the method is not changed after seeing it.
+- **Evaluation protocol** (`denoise/evaluation.py`, `python -m nisq_folio.denoise`). Classical only:
+  - Instances: the first 50 evaluation instances per N (default stream; no tuning involved).
+  - For each estimator, take the brute-force optimal selection x̂ with w = x̂/K, at λ = 4.5. λ is
+    not re-calibrated per estimator.
+  - Scored on 2021–2023 out-of-sample returns.
+  - **Primary:** realized variance wᵀΣ_oos w, compared with the sample estimator, paired by instance.
+  - **Secondary:** realized objective λ·v_oos − μ_oosᵀw; risk ratio v_oos/v_pred; share of
+    instances with an identical selection; universe-level Frobenius distance between in-sample
+    and out-of-sample correlations.
+  - Statistics: median paired difference, share of instances improved, and a two-sided Wilcoxon
+    signed-rank p over non-zero differences. Instances share assets and are not independent, so
+    p-values are descriptive only.
+- **Process incident (disclosed per CLAUDE.md rule 5):**
+  - While writing these tests, I accidentally overwrote the Week 1 placeholder
+    `tests/test_denoise.py` (an existing test, contrary to rule 4). It was caught before any
+    commit and restored byte-for-byte from git. The new tests live in `tests/test_denoise_rmt.py`.
+  - A check confirmed that no placeholder test has changed since commit `3c667dc`.
