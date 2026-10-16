@@ -82,6 +82,42 @@ class QuboConfig:
     penalty_margin: float
 
 
+@dataclass(frozen=True)
+class QaoaTuningConfig:
+    """The QAOA tuning grid (ADR-020).
+
+    Attributes:
+        instances_per_size: Tuning instances per N (drawn from a separate stream).
+        excluded_evaluation_instances: How many evaluation instances per N to exclude.
+        layers: Candidate depths p.
+        penalty_scales: Candidate c in P = c * provable bound.
+        ramp_deltas: Candidate ramp Delta values.
+    """
+
+    instances_per_size: int
+    excluded_evaluation_instances: int
+    layers: tuple[int, ...]
+    penalty_scales: tuple[float, ...]
+    ramp_deltas: tuple[float, ...]
+
+
+@dataclass(frozen=True)
+class QaoaConfig:
+    """QAOA optimization protocol settings.
+
+    Attributes:
+        shots: Shots per energy evaluation.
+        max_evaluations: Optimizer evaluation budget.
+        rhobeg: COBYLA initial trust-region radius.
+        tuning: The tuning grid.
+    """
+
+    shots: int
+    max_evaluations: int
+    rhobeg: float
+    tuning: QaoaTuningConfig
+
+
 # Must match nisq_folio.noise.benchmark.BENCHMARK_METHODS (checked by a test); duplicated here so
 # that loading a config does not import Qiskit.
 NOISE_BENCHMARK_METHODS = ("ideal_statevector", "statevector", "density_matrix")
@@ -139,6 +175,13 @@ class Config:
     baselines: BaselinesConfig | None = None
     qubo: QuboConfig | None = None
     noise_benchmark: NoiseBenchmarkConfig | None = None
+    qaoa: QaoaConfig | None = None
+
+    def require_qaoa(self) -> QaoaConfig:
+        """Return the ``qaoa`` section, raising ConfigError if the file has none."""
+        if self.qaoa is None:
+            raise ConfigError(f"{self.source_path}: this command needs a 'qaoa' section")
+        return self.qaoa
 
     def require_qubo(self) -> QuboConfig:
         """Return the ``qubo`` section, raising ConfigError if the file has none."""
@@ -205,6 +248,9 @@ def load_config(path: Path | str) -> Config:
         if isinstance(margin, bool) or margin <= 0:
             raise ConfigError(f"{source}: penalty_margin must be > 0, got {margin!r}")
         qubo = QuboConfig(penalty_margin=float(margin))
+    qaoa = None
+    if "qaoa" in raw:
+        qaoa = _parse_qaoa(_require(raw, "qaoa", dict, source), source)
     noise_benchmark = None
     if "noise_benchmark" in raw:
         noise_benchmark = _parse_noise_benchmark(
@@ -221,6 +267,43 @@ def load_config(path: Path | str) -> Config:
         baselines=baselines,
         qubo=qubo,
         noise_benchmark=noise_benchmark,
+        qaoa=qaoa,
+    )
+
+
+def _parse_qaoa(raw: dict[str, Any], source: Path) -> QaoaConfig:
+    def positive(mapping: dict[str, Any], key: str, kind: type | tuple[type, ...]) -> Any:  # noqa: ANN401
+        value = _require(mapping, key, kind, source)
+        if isinstance(value, bool) or value <= 0:
+            raise ConfigError(f"{source}: qaoa field {key!r} must be > 0, got {value!r}")
+        return value
+
+    def positive_list(mapping: dict[str, Any], key: str, kind: type | tuple[type, ...]) -> tuple:
+        values = _require(mapping, key, list, source)
+        if not values:
+            raise ConfigError(f"{source}: qaoa.tuning.{key} must not be empty")
+        for v in values:
+            if isinstance(v, bool) or not isinstance(v, kind) or v <= 0:
+                raise ConfigError(f"{source}: invalid value {v!r} in qaoa.tuning.{key}")
+        return tuple(values)
+
+    tuning = _require(raw, "tuning", dict, source)
+    excluded = _require(tuning, "excluded_evaluation_instances", int, source)
+    if isinstance(excluded, bool) or excluded < 0:
+        raise ConfigError(f"{source}: excluded_evaluation_instances must be >= 0")
+    return QaoaConfig(
+        shots=positive(raw, "shots", int),
+        max_evaluations=positive(raw, "max_evaluations", int),
+        rhobeg=float(positive(raw, "rhobeg", (int, float))),
+        tuning=QaoaTuningConfig(
+            instances_per_size=positive(tuning, "instances_per_size", int),
+            excluded_evaluation_instances=excluded,
+            layers=positive_list(tuning, "layers", int),
+            penalty_scales=tuple(
+                float(c) for c in positive_list(tuning, "penalty_scales", (int, float))
+            ),
+            ramp_deltas=tuple(float(d) for d in positive_list(tuning, "ramp_deltas", (int, float))),
+        ),
     )
 
 

@@ -18,6 +18,8 @@ import numpy as np
 STREAM_INSTANCES = 0
 STREAM_SIMULATED_ANNEALING = 1
 STREAM_NOISE_BENCHMARK = 2
+STREAM_TUNING_INSTANCES = 3  # instances used only for choosing QAOA settings (ADR-020)
+STREAM_QAOA_SHOTS = 4
 
 
 def child_rng(root_seed: int, *keys: int) -> np.random.Generator:

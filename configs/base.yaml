@@ -44,6 +44,20 @@ baselines:
 qubo:
   penalty_margin: 0.01
 
+# QAOA optimization protocol (DECISIONS.md ADR-020). The tuning study chooses depth p, penalty
+# scale c (P = c * provable bound) and ramp Delta on separate tuning instances, by the rule
+# pre-registered in ADR-020.
+qaoa:
+  shots: 1024
+  max_evaluations: 100
+  rhobeg: 0.25
+  tuning:
+    instances_per_size: 10
+    excluded_evaluation_instances: 50   # tuning never uses the first 50 evaluation instances
+    layers: [1, 2, 3, 4]
+    penalty_scales: [1.0, 0.5, 0.25, 0.1]
+    ramp_deltas: [0.75, 1.5]
+
 # Runtime benchmark for noisy simulation (DECISIONS.md ADR-007, ADR-018).
 noise_benchmark:
   backend: FakeKingston

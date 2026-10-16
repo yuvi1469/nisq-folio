@@ -455,3 +455,74 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
 - **Consequence for the research question:** the noise crossover is estimated from three sizes
   (8, 10, 12). That is enough to see a trend in N, but extrapolation beyond N = 12 must be stated as
   extrapolation.
+
+## ADR-019: Success metric, defined before any quantum results
+
+- **Status:** Accepted (2026-10-16). Fixed before any QAOA tuning or evaluation results exist.
+- **Problem with the obvious metric:** a QAOA run at N ≤ 14 draws about 10⁴–10⁵ samples
+  (evaluations × 1,024 shots), while there are only 2^N ≤ 16,384 bitstrings and C(N, K) ≤ 3,432
+  feasible selections. "Best solution ever sampled" would be found by blind random guessing
+  with the same number of samples, so it cannot show any quantum effect.
+- **Primary metric:** the **amplification over random feasible guessing** of QAOA's final output
+  distribution, A = p_opt / (m / C(N, K)), where m is the number of optimal selections.
+  - It is computed exactly from the final state, so it has no shot noise (`qaoa/metrics.py`).
+  - A > 1 means QAOA puts more probability on the optimum than uniformly guessing a valid
+    selection. Infeasible output mass counts against QAOA automatically.
+- **Secondary metrics:**
+  - p_feasible;
+  - E[gap], the normalized gap, with infeasible samples scored as the worst gap 1;
+  - A_uniform = p_opt·2^N/m, against uniformly random bitstrings, a weaker bar;
+  - samples_to_90 = ⌈ln 0.1 / ln(1 − p_opt)⌉.
+- **Definition of the noise crossover** (research question, part 2): for each N, the noise level
+  at which the median A over evaluation instances falls to **1**. That is the point where QAOA's
+  output is no better than random valid guessing. It is estimated by interpolating across the
+  noise sweep, with bootstrap confidence intervals over instances (W13). A secondary crossover
+  uses A_uniform = 1.
+- **Comparison with classical baselines (research question, part 1):** budget-matched, reported as
+  quality versus number of samples or evaluations.
+  - QAOA's cost is (optimization shots) + samples_to_90.
+  - Simulated annealing's cost is the steps needed to reach 90% optimal (ADR-016).
+  - Greedy is deterministic and costs about N·K evaluations.
+  - **Expectation stated in advance:** at N ≤ 14, ADR-016 measured SA at about 90% optimal in
+    about 200 steps, far below QAOA's sampling cost. So QAOA is not expected to beat the classical
+    baselines on budget at these sizes. The study's value lies in measuring *how much* quantum
+    advantage over random guessing exists noiselessly, and *where noise erases it*.
+
+## ADR-020: Noiseless QAOA protocol and tuning rule (pre-registered)
+
+- **Status:** Accepted (2026-10-16). The selection rule was committed before the tuning study ran.
+- **Simulation:**
+  - Exact noiseless state computed in NumPy (`qaoa/statevector.py`). This works because H_C is
+    diagonal; the result matches Qiskit's `Statevector` to 2×10⁻¹⁶, a check that is also a test.
+  - H_C is divided by s = √(ΣJᵢⱼ² + Σhᵢ²), the energy standard deviation under uniformly random
+    spins, so that γ = O(1) for every instance.
+- **Optimization** (`qaoa/optimize.py`):
+  - Each evaluation samples S = 1,024 shots, and the optimizer sees only the sample-mean QUBO
+    energy, as on hardware.
+  - COBYLA with at most 100 evaluations and rhobeg = 0.25. It may stop earlier; the *actual*
+    evaluations and shots are recorded.
+  - Linear-ramp initial angles with scale Δ.
+  - The final distribution is scored exactly (ADR-019).
+  - Randomness comes only from shot sampling: stream (STREAM_QAOA_SHOTS, N, instance, config).
+- **Disclosure: why the grid includes penalty scales below 1.** On one exploratory instance (a
+  random 10-stock subset; seed 12345, not part of any evaluation set):
+  - With the provable penalty of ADR-017, X-mixer QAOA stayed **below** random feasible guessing
+    (A ≈ 0.5–0.9), even with exact energies, p up to 4, and a p = 1 grid search.
+  - With a 10× smaller penalty, which happened to be calibrated from the known optimum, it reached
+    A ≈ 5.8 at p = 4.
+  - So the penalty strength is the decisive setting. It must be chosen legitimately: on separate
+    tuning instances, as a multiple of the provable bound, never from the optimum.
+- **Tuning grid:**
+  - p ∈ {1, 2, 3, 4}; penalty scale c ∈ {1, 0.5, 0.25, 0.1}, with P = c × the ADR-017 bound;
+    Δ ∈ {0.75, 1.5}. That is 32 configurations.
+  - c < 1 gives up the guarantee that the QUBO minimum is feasible. Infeasible output mass is
+    already penalized by A, so this is allowed and is visible in p_feasible.
+- **Tuning instances:** 10 per N, drawn from a separate stream (STREAM_TUNING_INSTANCES),
+  excluding the first 50 evaluation instances per N. Settings are therefore never chosen on the
+  instances they will be scored on.
+- **Selection rule** (`qaoa/tuning.py`):
+  - score = mean over N of ln(median over instances of A).
+  - Among configurations within 0.1 of the best score, pick the smallest p (cheaper and less noisy
+    later), then the largest c (closest to the guarantee), then the smallest Δ.
+- **Scope:** X mixer only. The constraint-preserving and adaptive mixers (W6) get their own
+  protocol ADR.
