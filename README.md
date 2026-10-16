@@ -1,9 +1,9 @@
 # NISQ-Folio
 
-> **Status: Week 7 of 14.** Data pipeline, four validated classical baselines, RMT covariance
+> **Status: Week 8 of 14.** Data pipeline, four validated classical baselines, RMT covariance
 > denoising with an out-of-sample evaluation, QUBO/Ising encoding, a noisy-simulation benchmark,
-> and noiseless QAOA with X, XY-ring and adaptive (ADAPT) mixers are implemented. Noise models are
-> next. See [PROJECT_PLAN.md](PROJECT_PLAN.md) for scope and milestones.
+> noiseless QAOA with X, XY-ring and adaptive (ADAPT) mixers, and verified gate-level circuits with
+> a tunable noise model (exact density matrix) are implemented. The experiment runner is next. See [PROJECT_PLAN.md](PROJECT_PLAN.md) for scope and milestones.
 
 ## Overview
 

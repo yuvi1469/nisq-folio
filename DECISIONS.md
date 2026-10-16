@@ -750,3 +750,68 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
   3. The report must state that the pipeline's first stage does not help the classical answer
      here, so any pipeline benefit would have to come from its interaction with QAOA, not from
      better risk estimates.
+
+## ADR-023: Gate-level circuits and the tunable noise model
+
+- **Status:** Accepted (2026-10-16).
+- **Circuits** (`noise/circuits.py`):
+  - **Dicke state:** the split-and-cyclic-shift construction of Bärtschi & Eidenbenz (FCT 2019;
+    **verify the reference before citing**). It is exact for every (N, K) with N ≤ 7 (test).
+  - **XY gate:** exp(−iβ(XX + YY)/2) = `XXPlusYYGate(2β, 0)`, checked against the NumPy mixer.
+  - **Cost layer:** RZZ / RZ with angles 2γJ/s and 2γh/s, using the same scale s as the noiseless
+    simulator.
+  - Whole circuits for X, XY-ring and ADAPT sequences match the NumPy state to 10⁻¹² (tests).
+- **Noise model** (`noise/density.py`): one knob, the **noise level m**, scales the median error
+  rates of the reference device FakeKingston (IBM Heron):
+  - single-qubit error 2.36×10⁻⁴, CZ error 1.83×10⁻³, readout error 9.52×10⁻³;
+  - m = 0 is noiseless and m = 1 is about today's hardware.
+  - Gate errors are depolarizing with λ = r·d/(d − 1), so the average gate infidelity equals r.
+    RZ gates are virtual and error-free.
+  - Readout is an independent symmetric bit flip applied to the exact distribution.
+  - **Not modelled:** thermal relaxation (T1/T2), crosstalk, coherent errors. This is a stated
+    simplification. The crossover is therefore reported in units of "m × today's median
+    depolarizing error", not as a full device emulation.
+- **Execution:**
+  - Circuits are transpiled once per mixer sequence onto Kingston's heavy-hex coupling map (basis
+    cz/rz/sx/x, level 3, fixed seed), then bound per evaluation.
+  - Simulation is an exact density matrix (`save_probabilities` on the routed final layout).
+  - Shots are drawn from the exact noisy distribution with the run's seeded RNG, exactly as in the
+    noiseless protocol (`noise/runner.py`).
+- **Equivalence check, the key validation:** at m = 0, the noisy pipeline (transpile → route →
+  density matrix → layout → readout) reproduces the NumPy simulator to 10⁻¹⁵ for single
+  distributions. Whole optimizations give the same evaluations, the same ADAPT operator sequence,
+  and |ΔA| ≈ 10⁻¹⁵ for all three mixers (tests).
+  - **Bug found and fixed:** the density matrix returns about 10⁻¹⁶ residue in bins that are
+    exactly zero in theory. NumPy's multinomial sampler consumes random numbers for non-zero bins,
+    so the RNG stream drifted and optimizations diverged at m = 0 (ADAPT chose different
+    operators).
+  - Fix: set probabilities below 10⁻¹⁵ to 0. This is physically negligible (expected count
+    < 10⁻¹² at 1,024 shots).
+- **First noise effects (N = 6, p = 2, one XY sequence):** the circuit has 254 CZ after routing.
+  p_feasible is 1.00 at m = 0, 0.62 at m = 1 and 0.34 at m = 4. Noise leaks probability out of the
+  feasible subspace, and the metric counts that as failure.
+- **Measured cost per noisy evaluation at m = 1** (one exact density-matrix run, this laptop):
+
+  | N | X, p = 2 | XY ring, p = 1 | ADAPT, p = 4 |
+  |---|---|---|---|
+  | 8 | 0.17 s (222 CZ) | 0.30 s (408 CZ) | 0.54 s (808 CZ) |
+  | 10 | 1.0 s (328 CZ) | 3.0 s (675 CZ) | 3.9 s (1,358 CZ) |
+  | 12 | 18 s (533 CZ) | 44 s (1,053 CZ) | 217 s (1,927 CZ) |
+
+  - The Dicke preparation and XY gates need many more CZ than the X mixer, so the constraint-
+    preserving mixers pay **more noise and more runtime**.
+  - **Machine variability:** identical test runs on this laptop took between 7 s and 441 s
+    (thermal throttling or background load are likely; not diagnosed). Wall-time budgets need a
+    safety factor.
+- **Budget consequences (rough, for the W10 budget ADR; not decisions yet):**
+  - **ADAPT under noise at N = 12 is infeasible here.** Operator selection alone needs
+    2 × 67 × 4 = 536 noisy circuits per run, plus 100 evaluations at about 217 s. That is on the
+    order of 20 h per run, or about 600 h per 30-seed cell.
+  - At N = 10, ADAPT is about 20 min per run (about 10 h per cell); at N = 8, about 2–3 min per run.
+  - X and XY ring are affordable at N = 8 and 10. At N = 12 they cost about 12 min (X) and about
+    75 min (XY ring) per run.
+  - Options to decide in W10, with the user's laptop-hour budget:
+    - (a) noisy ADAPT only at N ≤ 10;
+    - (b) a cheaper "transfer" protocol: choose the ADAPT operator sequence noiselessly, then
+      optimize its angles under noise;
+    - (c) fewer noise levels at N = 12.
