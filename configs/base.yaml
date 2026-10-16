@@ -58,6 +58,19 @@ qaoa:
     penalty_scales: [1.0, 0.5, 0.25, 0.1]
     ramp_deltas: [0.75, 1.5]
 
+# Mixer study (DECISIONS.md ADR-021): same tuning instances and shot/evaluation budget as above.
+mixer_study:
+  mixers: [x, xy_ring, adapt]
+  optimizers: [cobyla, spsa]
+  layers: [1, 2, 3, 4]
+  x_penalty_scales: [1.0, 0.1]   # the X mixer's ADR-020 choice (0.1) and the provable bound (1.0)
+  ramp_delta: 0.75               # ADR-020 selection
+  adapt_gradient_shift: 0.3927   # pi / 8
+  spsa:
+    target_step: 0.2
+    perturbation: 0.1
+    calibration_samples: 5
+
 # Runtime benchmark for noisy simulation (DECISIONS.md ADR-007, ADR-018).
 noise_benchmark:
   backend: FakeKingston

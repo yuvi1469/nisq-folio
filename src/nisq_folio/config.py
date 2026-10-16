@@ -118,6 +118,35 @@ class QaoaConfig:
     tuning: QaoaTuningConfig
 
 
+# Must match nisq_folio.mixers.variants.MIXERS and nisq_folio.qaoa.optimizers.OPTIMIZERS
+# (checked by a test); duplicated so that loading a config does not import Qiskit.
+STUDY_MIXERS = ("x", "xy_ring", "adapt")
+STUDY_OPTIMIZERS = ("cobyla", "spsa")
+
+
+@dataclass(frozen=True)
+class MixerStudyConfig:
+    """The mixer study grid (ADR-021).
+
+    Attributes:
+        mixers: Mixers to compare.
+        optimizers: Optimizers to compare.
+        layers: Candidate depths p.
+        x_penalty_scales: Penalty scales c for the X mixer.
+        ramp_delta: Linear-ramp scale for initial angles.
+        adapt_gradient_shift: delta for ADAPT's central-difference gradient.
+        spsa: Keyword arguments for ``SpsaSettings`` (validated there).
+    """
+
+    mixers: tuple[str, ...]
+    optimizers: tuple[str, ...]
+    layers: tuple[int, ...]
+    x_penalty_scales: tuple[float, ...]
+    ramp_delta: float
+    adapt_gradient_shift: float
+    spsa: dict[str, Any]
+
+
 # Must match nisq_folio.noise.benchmark.BENCHMARK_METHODS (checked by a test); duplicated here so
 # that loading a config does not import Qiskit.
 NOISE_BENCHMARK_METHODS = ("ideal_statevector", "statevector", "density_matrix")
@@ -176,6 +205,13 @@ class Config:
     qubo: QuboConfig | None = None
     noise_benchmark: NoiseBenchmarkConfig | None = None
     qaoa: QaoaConfig | None = None
+    mixer_study: MixerStudyConfig | None = None
+
+    def require_mixer_study(self) -> MixerStudyConfig:
+        """Return the ``mixer_study`` section, raising ConfigError if the file has none."""
+        if self.mixer_study is None:
+            raise ConfigError(f"{self.source_path}: this command needs a 'mixer_study' section")
+        return self.mixer_study
 
     def require_qaoa(self) -> QaoaConfig:
         """Return the ``qaoa`` section, raising ConfigError if the file has none."""
@@ -251,6 +287,9 @@ def load_config(path: Path | str) -> Config:
     qaoa = None
     if "qaoa" in raw:
         qaoa = _parse_qaoa(_require(raw, "qaoa", dict, source), source)
+    mixer_study = None
+    if "mixer_study" in raw:
+        mixer_study = _parse_mixer_study(_require(raw, "mixer_study", dict, source), source)
     noise_benchmark = None
     if "noise_benchmark" in raw:
         noise_benchmark = _parse_noise_benchmark(
@@ -268,6 +307,41 @@ def load_config(path: Path | str) -> Config:
         qubo=qubo,
         noise_benchmark=noise_benchmark,
         qaoa=qaoa,
+        mixer_study=mixer_study,
+    )
+
+
+def _parse_mixer_study(raw: dict[str, Any], source: Path) -> MixerStudyConfig:
+    def choices(key: str, allowed: tuple[str, ...]) -> tuple[str, ...]:
+        values = tuple(_require(raw, key, list, source))
+        if not values or any(v not in allowed for v in values) or len(set(values)) != len(values):
+            raise ConfigError(f"{source}: mixer_study.{key} must be distinct values from {allowed}")
+        return values
+
+    def positives(key: str, kind: type | tuple[type, ...]) -> tuple:
+        values = _require(raw, key, list, source)
+        if not values or any(
+            isinstance(v, bool) or not isinstance(v, kind) or v <= 0 for v in values
+        ):
+            raise ConfigError(
+                f"{source}: mixer_study.{key} must be a non-empty list of numbers > 0"
+            )
+        return tuple(values)
+
+    def positive(key: str) -> float:
+        value = _require(raw, key, (int, float), source)
+        if isinstance(value, bool) or value <= 0:
+            raise ConfigError(f"{source}: mixer_study.{key} must be > 0, got {value!r}")
+        return float(value)
+
+    return MixerStudyConfig(
+        mixers=choices("mixers", STUDY_MIXERS),
+        optimizers=choices("optimizers", STUDY_OPTIMIZERS),
+        layers=positives("layers", int),
+        x_penalty_scales=tuple(float(c) for c in positives("x_penalty_scales", (int, float))),
+        ramp_delta=positive("ramp_delta"),
+        adapt_gradient_shift=positive("adapt_gradient_shift"),
+        spsa=dict(_require(raw, "spsa", dict, source)),
     )
 
 

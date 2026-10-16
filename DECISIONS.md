@@ -568,3 +568,44 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
     the tuning rule meaningless. A stronger shot-noise-robust optimizer (e.g. COBYLA with a smaller
     final trust radius, or SPSA) may be adopted only through a new ADR, labelled post-hoc, and
     applied identically to every mixer. The ADR-020 X-mixer result above stays reported as is.
+
+## ADR-021: Constraint-preserving and adaptive mixers, SPSA, and the mixer study (pre-registered)
+
+- **Status:** Accepted (2026-10-16). The rule and grid were committed before the mixer study ran.
+- **Mixers** (`mixers/`):
+  - **XY ring:** a parity-ordered product of exp(−iβ(XᵢXⱼ + YᵢYⱼ)/2) over ring edges, one Trotter step
+    per layer. Starts from the Dicke state |D_K^N⟩, the uniform superposition of all C(N, K)
+    feasible selections. The cost layer uses the objective f only: the penalty is identically
+    zero inside the feasible subspace.
+    - Tests check each pair rotation against the dense matrix exponential of Qiskit's Pauli
+      operators, and check that the Hamming-weight distribution is preserved.
+    - At zero angles A = 1 exactly, so every gain shows up directly in the ADR-019 metric.
+  - **ADAPT** (adaptive mixer), after the ADAPT-QAOA idea of Zhu et al. (Phys. Rev. Research, 2022;
+    **reference to be verified before citing in the report**):
+    - Starts from the Dicke state. The pool is {XY ring} ∪ {XYᵢⱼ : i < j}, all weight-preserving.
+    - For each layer, every pool operator's energy gradient is estimated by a shot-based
+      central difference with δ = π/8, at the layer's ramp γ.
+    - The largest-|gradient| operator is appended, then all angles are re-optimized with an equal
+      share of the remaining evaluation budget.
+    - The selection shots (2·|pool|·S per layer, e.g. about 750k at N = 14 and p = 4) are recorded
+      separately and **count in budget comparisons**.
+  - **X:** as in ADR-020, with penalty scales c ∈ {1.0, 0.1}.
+- **Optimizer (post-hoc, labelled as such):**
+  - SPSA is added because COBYLA stopped early in 100% of ADR-020 runs. Gains are calibrated
+    to a first step of 0.2 rad, with perturbation c = 0.1 and 5 calibration samples (10
+    evaluations), and Spall's standard exponents 0.602 / 0.101.
+  - SPSA spends exactly its budget. Both optimizers get the same 100-evaluation budget and
+    are available to **every** mixer.
+  - The ADR-020 X-mixer result stays reported unchanged.
+- **Grid:** mixer {x, xy_ring, adapt} × optimizer {cobyla, spsa} × p {1, 2, 3, 4}, plus
+  c {1.0, 0.1} for X only. That is 32 configurations.
+  - Fixed settings: Δ = 0.75 (the ADR-020 selection), S = 1,024, 100 evaluations.
+  - Same 10 tuning instances per N as ADR-020 (separate stream, evaluation instances excluded).
+  - Shot and SPSA randomness comes from stream (STREAM_MIXER_STUDY, N, instance, config).
+- **Selection rule, applied per mixer** (`mixers/study.py`):
+  - The same score as ADR-020: mean over N of ln(median A).
+  - Within 0.1 of that mixer's best score, choose the smallest p, then the largest c, then COBYLA
+    before SPSA.
+- **What the comparison means:** these are tuning-instance numbers, used to choose settings, and
+  are optimistic by construction. The mixer comparison reported in the final results is made on
+  the evaluation instances (W11).
