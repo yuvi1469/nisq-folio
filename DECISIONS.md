@@ -710,3 +710,43 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
     `tests/test_denoise.py` (an existing test, contrary to rule 4). It was caught before any
     commit and restored byte-for-byte from git. The new tests live in `tests/test_denoise_rmt.py`.
   - A check confirmed that no placeholder test has changed since commit `3c667dc`.
+
+### ADR-022 results (2026-10-16): textbook RMT clipping does not help on this universe
+
+- **Run record:** `results/denoise_evaluation/20261016T045617Z_01159b2.json`. Clean commit `01159b2`,
+  the pre-registration commit. 50 evaluation instances per N, exact optima, λ = 4.5.
+- **Universe level:**
+  - `rmt_clip` kept 3 of 30 eigenvalues; `rmt_band_only` kept 28; Ledoit–Wolf shrinkage was 0.022.
+  - Frobenius distance from the in-sample correlation to the out-of-sample correlation:
+    sample 5.643, **rmt_clip 5.943 (worse)**, band-only 5.646, **Ledoit–Wolf 5.329 (best)**.
+- **`rmt_clip` against the sample covariance, per N:**
+
+  | N | Selection changed | Among changed: realized variance lower / median relative change | Among changed: realized objective lower | Wilcoxon p (variance, all instances) |
+  |---|---|---|---|---|
+  | 8 | 13/50 | 46% / +2.8% | 31% | 0.455 |
+  | 10 | 15/50 | 53% / −0.3% | 47% | 0.389 |
+  | 12 | 22/50 | 27% / +4.8% | 45% | 0.0074 |
+  | 14 | 18/50 | 44% / +0.1% | 33% | 0.196 |
+
+  Pooled over the 68 changed instances: realized variance was lower in 41% (median +1.8%) and the
+  realized objective was lower in 40%.
+- **References:**
+  - Band-only and Ledoit–Wolf changed the selection in only 2–8% and 0–4% of instances, with no
+    systematic effect.
+  - Median risk ratio v_oos/v_pred was about 0.63–0.77 for every estimator: realized 2021–23 risk
+    was below predicted. The in-sample window contains the 2020 crash, so this regime effect is
+    shared by all estimators. It is slightly stronger for `rmt_clip`, at 0.63–0.73.
+- **Conclusion, as measured and as predicted in advance:**
+  - Textbook Marchenko–Pastur clipping does **not** improve the classical optimal selection on
+    this universe. When it changes the answer, the answer is more often worse out of sample.
+  - The likely mechanism is the one in the synthetic counter-example. That is an interpretation,
+    not proven for the real data.
+- **Consequences:**
+  1. The denoising factor stays exactly as pre-registered (none vs `rmt_clip`). It is **not**
+     swapped for a variant that looks better after the fact.
+  2. The open research question is now narrower: does denoising change *QAOA's* behaviour? The
+     3-factor cleaned matrix gives a different, smoother landscape, which may be easier or harder
+     to optimize. That is measured in the W9–W11 grid on the same instances.
+  3. The report must state that the pipeline's first stage does not help the classical answer
+     here, so any pipeline benefit would have to come from its interaction with QAOA, not from
+     better risk estimates.
