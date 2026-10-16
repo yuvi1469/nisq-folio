@@ -609,3 +609,49 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
 - **What the comparison means:** these are tuning-instance numbers, used to choose settings, and
   are optimistic by construction. The mixer comparison reported in the final results is made on
   the evaluation instances (W11).
+
+### ADR-021 results (2026-10-16): constraint-preserving mixers beat random feasible guessing
+
+- **Run record:** `results/mixer_study/20261016T032011Z_b8811f3.json`. Clean commit `b8811f3`, the
+  pre-registration commit. 32 configurations × 10 tuning instances × 4 sizes = 1,280 runs.
+- **Selected by the rule:**
+  - **adapt** (COBYLA, p = 4)
+  - **xy_ring** (SPSA, p = 1)
+  - **x** (COBYLA, p = 2, c = 0.1). This is the same X choice as ADR-020: the best X score was
+    p = 4, but p = 2 is within tolerance.
+- **Selected configurations on the tuning instances** (median [IQR]; "A > 1" is the share of instances):
+
+  | N | ADAPT A | A > 1 | E[gap] | total shots | XY ring A | A > 1 | E[gap] | X A | A > 1 | E[gap] |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | 8 | 2.99 [1.75, 5.16] | 100% | 0.19 | 340k | 1.98 [0.98, 3.12] | 70% | 0.25 | 0.83 | 30% | 0.77 |
+  | 10 | 4.89 [2.30, 8.86] | 100% | 0.21 | 479k | 1.54 [1.43, 4.20] | 80% | 0.29 | 0.75 | 10% | 0.80 |
+  | 12 | 7.11 [4.67, 13.18] | 100% | 0.26 | 651k | 3.56 [2.12, 4.54] | 100% | 0.30 | 1.02 | 60% | 0.79 |
+  | 14 | 7.05 [5.41, 8.86] | 100% | 0.28 | 856k | 3.78 [1.51, 4.32] | 80% | 0.32 | 0.76 | 10% | 0.80 |
+
+  Total shots: XY ring 102k; X 37k–45k (COBYLA stops early). ADAPT = 102k optimization shots plus
+  238k–754k operator-selection shots.
+- **Findings (as measured):**
+  1. **Both constraint-preserving mixers beat random feasible guessing noiselessly. The X mixer
+     does not.** ADAPT is above 1 on every tuning instance at every N. Its expected gap is about
+     3–4× smaller than X's.
+  2. **ADAPT's advantage costs shots:** 3.3–8.4× more than XY ring in total, almost all of it on
+     estimating pool gradients (2·|pool|·S per layer). Budget-matched comparisons (ADR-019) must
+     charge this.
+  3. **The XY ring is best at p = 1 and gets worse with depth** (median A at p = 4 is 0.4–1.4). The
+     cause is not established. Candidates are Trotter error in the ring product, or a harder
+     optimization landscape at depth; this is a hypothesis.
+  4. **SPSA did not rescue the X mixer.** Its best X score with SPSA (−0.181) was below its best
+     with COBYLA (−0.100). The ADR-020 hypothesis, that COBYLA's early stopping explains X's weak
+     result, is **not supported**. X's weakness tracks the penalty and feasibility (p_feasible
+     about 0.31–0.33), not the optimizer. SPSA was selected only for the XY ring.
+  5. A rises with N partly because the random baseline 1/C(N, K) shrinks. A comparison across N
+     should use E[gap] and p_opt alongside A.
+- **Caveats:**
+  - These are tuning-instance results, which are optimistic. The mixer comparison of record
+    comes from the evaluation instances (W11).
+  - **Noise implications for W8, not yet measured:** an X layer has no two-qubit mixer gates. An XY
+    ring layer has N two-qubit XY gates. ADAPT's single-pair operators act on arbitrary pairs,
+    which need routing on heavy-hex hardware. Constraint preservation also only holds
+    noiselessly: noise leaks probability out of the feasible subspace, and the metric counts that
+    as failure. The noisy study needs Dicke-state preparation and XY circuits, to be implemented
+    and verified in W8.

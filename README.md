@@ -1,8 +1,8 @@
 # NISQ-Folio
 
-> **Status: Week 5 of 14.** Data pipeline, four validated classical baselines, QUBO/Ising
-> encoding, a noisy-simulation benchmark, and noiseless X-mixer QAOA with a pre-registered tuning
-> study are implemented. Constraint-preserving and adaptive mixers are next. See [PROJECT_PLAN.md](PROJECT_PLAN.md) for scope and milestones.
+> **Status: Week 6 of 14.** Data pipeline, four validated classical baselines, QUBO/Ising
+> encoding, a noisy-simulation benchmark, and noiseless QAOA with X, XY-ring and adaptive (ADAPT)
+> mixers plus pre-registered tuning studies are implemented. RMT denoising is next. See [PROJECT_PLAN.md](PROJECT_PLAN.md) for scope and milestones.
 
 ## Overview
 
@@ -50,6 +50,9 @@ uv run python -m nisq_folio.noise --config configs/base.yaml
 
 # Noiseless QAOA tuning study with the pre-registered selection rule (about 3 minutes):
 uv run python -m nisq_folio.qaoa --config configs/base.yaml
+
+# Noiseless mixer study (X vs XY ring vs ADAPT; about 15 minutes):
+uv run python -m nisq_folio.mixers --config configs/base.yaml
 ```
 
 The runtime benchmark includes noisy N=14 cases that can take hours on a laptop. To skip them,

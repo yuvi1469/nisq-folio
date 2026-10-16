@@ -69,7 +69,7 @@ and 6.6 h (N=12). The budget and the resulting noisy grid are fixed in an ADR be
 | W3 ✅ | Classical baselines | `baselines/`: all four solvers, validated against brute force on small N |
 | W4 ✅ | QUBO + noise benchmark | `qubo/` with penalty-weight ADR; noisy-simulation runtime benchmark → finalize ADR-007 |
 | W5 ✅ | QAOA core | `qaoa/` with X mixer, noiseless; metric definitions ADR |
-| W6 | Mixers | `mixers/`: constraint-preserving + adaptive mixers |
+| W6 ✅ | Mixers | `mixers/`: constraint-preserving + adaptive mixers |
 | W7 | RMT denoising | `denoise/`: Marchenko–Pastur clipping; property tests (PSD, trace preservation) |
 | W8 | Noise models | `noise/`: fake-backend + parameterised noise sweep |
 | W9 | Experiment runner | `experiments/`: config-driven grid, provenance logging (config + git hash), resumable |
