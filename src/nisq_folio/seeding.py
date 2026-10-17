@@ -22,6 +22,7 @@ STREAM_TUNING_INSTANCES = 3  # instances used only for choosing QAOA settings (A
 STREAM_QAOA_SHOTS = 4
 STREAM_MIXER_STUDY = 5
 STREAM_EXPERIMENT = 6
+STREAM_PILOT = 7
 
 
 def child_rng(root_seed: int, *keys: int) -> np.random.Generator:

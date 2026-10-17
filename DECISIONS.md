@@ -867,3 +867,46 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
 - **Note for the analysis (W13):** the smoke run showed that A > 1 does not imply that the modal
   (most probable) feasible selection is optimal. Both are reported. A measures probability mass on
   the optimum; the modal selection is what would be deployed.
+
+## ADR-025: Noisy grid: pilot, noise levels and budget (rules pre-registered)
+
+- **Status:** Rules accepted (2026-10-17). They were committed before the pilot ran. The resulting
+  levels are recorded below after the pilot.
+- **Budget (user decision, 2026-10-17):** 100 laptop-hours for the noisy grid, as about 10
+  overnight runs of about 10 h each. The runner resumes, so each night continues where the
+  previous one stopped (ADR-024).
+- **Scope fixed now:**
+  - Noisy ADAPT runs only at N ∈ {8, 10}. At N = 12 it is infeasible here, at about 20 h per run
+    (ADR-023). Set via `experiment.noisy_exclusions`.
+  - Noiseless ADAPT still runs at every N.
+- **Pilot** (`python -m nisq_folio.experiments.pilot_run`). It uses tuning instances only, drawn
+  from the separate stream with the evaluation instances excluded:
+  1. **Timing:** seconds per noisy evaluation at m = 1 for every mixer and N ∈ {8, 10, 12}
+     (not ADAPT at 12), with Aer on automatic threads. At N ∈ {8, 10} it is also timed with
+     1 thread.
+  2. **Bracketing:** full noisy runs at N = 8 for all three mixers at m ∈ {0.25, 1, 4}, plus
+     the m = 0 reference, on 2 tuning instances, recording A.
+- **Pre-registered rules** (`experiments/pilot.py`):
+  - **Rule 1, upper level:**
+    - For each mixer, the pilot crossing is the m where the median A falls to 1, interpolated
+      in log m.
+    - m_max is the smallest value of the ladder {0.125, 0.25, 0.5, 1, 2, 4, 8} that is ≥ 1 and
+      ≥ every mixer's crossing.
+    - If some mixer never falls to 1, m_max = 8.
+  - **Rule 2, levels and budget:**
+    - Start with every ladder value ≤ m_max.
+    - While the estimated noisy-grid hours exceed 100, drop the smallest non-zero level,
+      keeping at least 3.
+    - If it is still over budget, **report the overrun** to the user rather than silently
+      cutting cells.
+  - **Rule 3, parallelism:**
+    - Use 3 single-thread workers if 3·t_auto/t_1thread > 1.2 at both N = 8 and N = 10;
+      otherwise use 1 worker.
+    - The measured gain is applied only at the sizes where it was measured. N = 12 is assumed
+      to gain nothing (conservative).
+- **Why these rules:**
+  - The sweep must reach past the point where QAOA stops beating random guessing, or no
+    crossover can be estimated.
+  - Low noise levels are the least informative about the crossover, so they are dropped first.
+  - Pilot instances are never evaluation instances, so choosing levels from the pilot cannot
+    bias the results of record.

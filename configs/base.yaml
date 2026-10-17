@@ -93,6 +93,7 @@ experiment:
     x: {optimizer: cobyla, layers: 2, penalty_scale: 0.1}
     xy_ring: {optimizer: spsa, layers: 1}
     adapt: {optimizer: cobyla, layers: 4}
+  noisy_exclusions: {adapt: [12]}   # noisy ADAPT at N=12 is infeasible here (ADR-023, ADR-025)
   classical_sa_budgets: [25, 50, 100, 200, 500, 2000]
   # Seconds per noisy circuit evaluation at m = 1, measured in ADR-023 on this laptop; used only
   # by --estimate. Noiseless evaluations are charged `noiseless_seconds_per_eval`.
@@ -102,6 +103,19 @@ experiment:
       x: {8: 0.17, 10: 1.0, 12: 18.0}
       xy_ring: {8: 0.30, 10: 3.0, 12: 44.0}
       adapt: {8: 0.54, 10: 3.9, 12: 217.0}
+
+# Pilot for the noisy grid (DECISIONS.md ADR-025). Uses tuning instances only.
+pilot:
+  timing_sizes: [8, 10, 12]
+  timing_repeats: 3
+  skip_timing: {adapt: [12]}         # infeasible here (ADR-023), excluded from the noisy grid
+  thread_test_sizes: [8, 10]
+  accuracy_size: 8
+  accuracy_instances: 2
+  accuracy_noise_levels: [0.25, 1.0, 4.0]
+  noise_ladder: [0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0]
+  min_noisy_levels: 3
+  budget_hours: 100
 
 # Runtime benchmark for noisy simulation (DECISIONS.md ADR-007, ADR-018).
 noise_benchmark:

@@ -6,7 +6,7 @@ so results never depend on the current working directory.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -147,6 +147,7 @@ class ExperimentConfig:
         classical_sa_budgets: Step budgets for the simulated-annealing curves.
         noiseless_seconds_per_eval: Cost model for ``--estimate``.
         noisy_seconds_per_eval: Mixer -> {N: seconds per noisy evaluation at m = 1}.
+        noisy_exclusions: Mixer -> sizes at which it runs noiselessly only (ADR-025).
     """
 
     name: str
@@ -161,6 +162,23 @@ class ExperimentConfig:
     classical_sa_budgets: tuple[int, ...]
     noiseless_seconds_per_eval: float
     noisy_seconds_per_eval: dict[str, dict[int, float]]
+    noisy_exclusions: dict[str, tuple[int, ...]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class PilotConfig:
+    """Pilot settings for the noisy grid (ADR-025); see ``experiments/pilot.py`` for the rules."""
+
+    timing_sizes: tuple[int, ...]
+    timing_repeats: int
+    skip_timing: dict[str, tuple[int, ...]]
+    thread_test_sizes: tuple[int, ...]
+    accuracy_size: int
+    accuracy_instances: int
+    accuracy_noise_levels: tuple[float, ...]
+    noise_ladder: tuple[float, ...]
+    min_noisy_levels: int
+    budget_hours: float
 
 
 # Must match the RMT estimators in nisq_folio.denoise.evaluation.ESTIMATORS (checked by a test).
@@ -270,6 +288,13 @@ class Config:
     mixer_study: MixerStudyConfig | None = None
     denoise: DenoiseConfig | None = None
     experiment: ExperimentConfig | None = None
+    pilot: PilotConfig | None = None
+
+    def require_pilot(self) -> PilotConfig:
+        """Return the ``pilot`` section, raising ConfigError if the file has none."""
+        if self.pilot is None:
+            raise ConfigError(f"{self.source_path}: this command needs a 'pilot' section")
+        return self.pilot
 
     def require_experiment(self) -> ExperimentConfig:
         """Return the ``experiment`` section, raising ConfigError if the file has none."""
@@ -378,6 +403,9 @@ def load_config(path: Path | str) -> Config:
         if isinstance(count, bool) or count < 1:
             raise ConfigError(f"{source}: denoise.evaluation_instances_per_size must be >= 1")
         denoise = DenoiseConfig(experiment_method=method, evaluation_instances_per_size=count)
+    pilot = None
+    if "pilot" in raw:
+        pilot = _parse_pilot(_require(raw, "pilot", dict, source), source)
     experiment = None
     if "experiment" in raw:
         experiment = _parse_experiment(
@@ -403,6 +431,51 @@ def load_config(path: Path | str) -> Config:
         mixer_study=mixer_study,
         denoise=denoise,
         experiment=experiment,
+        pilot=pilot,
+    )
+
+
+def _parse_pilot(raw: dict[str, Any], source: Path) -> PilotConfig:
+    def fail(message: str) -> ConfigError:
+        return ConfigError(f"{source}: pilot.{message}")
+
+    def positive_ints(key: str) -> tuple[int, ...]:
+        values = _require(raw, key, list, source)
+        if not values or any(
+            isinstance(v, bool) or not isinstance(v, int) or v < 1 for v in values
+        ):
+            raise fail(f"{key} must be a non-empty list of positive integers")
+        return tuple(values)
+
+    def positive_floats(key: str) -> tuple[float, ...]:
+        values = _require(raw, key, list, source)
+        if not values or any(
+            isinstance(v, bool) or not isinstance(v, int | float) or v <= 0 for v in values
+        ):
+            raise fail(f"{key} must be a non-empty list of numbers > 0")
+        return tuple(sorted(float(v) for v in values))
+
+    def positive_int(key: str) -> int:
+        value = _require(raw, key, int, source)
+        if isinstance(value, bool) or value < 1:
+            raise fail(f"{key} must be >= 1")
+        return value
+
+    skip = _require(raw, "skip_timing", dict, source)
+    budget = _require(raw, "budget_hours", (int, float), source)
+    if isinstance(budget, bool) or budget <= 0:
+        raise fail("budget_hours must be > 0")
+    return PilotConfig(
+        timing_sizes=positive_ints("timing_sizes"),
+        timing_repeats=positive_int("timing_repeats"),
+        skip_timing={str(m): tuple(int(n) for n in ns) for m, ns in skip.items()},
+        thread_test_sizes=positive_ints("thread_test_sizes"),
+        accuracy_size=positive_int("accuracy_size"),
+        accuracy_instances=positive_int("accuracy_instances"),
+        accuracy_noise_levels=positive_floats("accuracy_noise_levels"),
+        noise_ladder=positive_floats("noise_ladder"),
+        min_noisy_levels=positive_int("min_noisy_levels"),
+        budget_hours=float(budget),
     )
 
 
@@ -467,6 +540,14 @@ def _parse_experiment(raw: dict[str, Any], n_assets: int, source: Path) -> Exper
         ):
             raise fail(f"cost_model.noisy_seconds_per_eval.{mixer} must map N to seconds > 0")
         noisy[str(mixer)] = {int(n): float(v) for n, v in table.items()}
+    exclusions_raw = raw.get("noisy_exclusions", {})
+    if not isinstance(exclusions_raw, dict):
+        raise fail("noisy_exclusions must map mixers to lists of sizes")
+    exclusions: dict[str, tuple[int, ...]] = {}
+    for mixer, ns in exclusions_raw.items():
+        if mixer not in mixers or not isinstance(ns, list) or not set(ns) <= set(noisy_sizes):
+            raise fail(f"noisy_exclusions.{mixer} must list noisy sizes of a configured mixer")
+        exclusions[str(mixer)] = tuple(int(n) for n in ns)
     return ExperimentConfig(
         name=_require(raw, "name", str, source),
         sizes=sizes,
@@ -480,6 +561,7 @@ def _parse_experiment(raw: dict[str, Any], n_assets: int, source: Path) -> Exper
         classical_sa_budgets=budgets,
         noiseless_seconds_per_eval=float(noiseless),
         noisy_seconds_per_eval=noisy,
+        noisy_exclusions=exclusions,
     )
 
 

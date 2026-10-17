@@ -4,7 +4,8 @@ Two kinds of task:
     ``classical``  one per (N, instance, denoising): exact optimum and the classical baselines
     ``qaoa``       one per (N, instance, denoising, mixer, noise level m)
 
-Noise levels m > 0 are expanded only for N in ``noisy_sizes``; every other N runs m = 0 only.
+Noise levels m > 0 are expanded only for N in ``noisy_sizes`` (and not for a mixer's
+``noisy_exclusions``); everything else runs m = 0 only.
 Each task has a stable string id (its result file name) and a seed derived from its identity
 alone, so results do not depend on task order, on parallelism, or on which other cells exist.
 Tasks are ordered cheapest first (classical, then noiseless, then noisy by N), so partial runs
@@ -68,7 +69,8 @@ def expand_tasks(experiment: ExperimentConfig) -> list[Task]:
             for denoising in experiment.denoising:
                 classical.append(Task("classical", n, instance, denoising))
                 for mixer in experiment.mixers:
-                    for level in levels:
+                    excluded = n in experiment.noisy_exclusions.get(mixer, ())
+                    for level in (0.0,) if excluded else levels:
                         task = Task("qaoa", n, instance, denoising, mixer, float(level))
                         (noiseless if level == 0.0 else noisy).append(task)
     noisy.sort(key=lambda t: (t.n, t.noise_level, t.mixer or "", t.instance, t.denoising))
