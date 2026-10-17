@@ -855,3 +855,15 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
   speed variability.
   - The current grid (m = 0 only) is **960 tasks, about 0.5 h predicted**.
   - Noisy levels and the noisy budget are fixed in W10 (ADR-025).
+- **Bug found by the real smoke run and fixed (2026-10-17):**
+  - `--workers > 1` crashed under `python -m` on Windows (`Can't get attribute '_worker_init'`).
+    Spawned workers cannot unpickle functions defined in `__main__`.
+  - The unit test called `main()` from pytest, so it never exercised that path. The workers now
+    live in `experiments/parallel.py`.
+  - A subprocess test (`tests/test_experiment_cli_subprocess.py`) now runs the real `python -m`
+    command with 2 workers.
+  - After the fix, a 260-task real-data smoke run (3 workers) completed in 32 s. Its results were
+    discarded: uncommitted code, not results of record.
+- **Note for the analysis (W13):** the smoke run showed that A > 1 does not imply that the modal
+  (most probable) feasible selection is optimal. Both are reported. A measures probability mass on
+  the optimum; the modal selection is what would be deployed.

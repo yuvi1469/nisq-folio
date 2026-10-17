@@ -21,7 +21,8 @@ from typing import Any
 from nisq_folio.config import load_config
 from nisq_folio.experiments.cost import summarize_cost, task_seconds
 from nisq_folio.experiments.execute import ExperimentContext, run_task
-from nisq_folio.experiments.grid import Task, expand_tasks
+from nisq_folio.experiments.grid import expand_tasks
+from nisq_folio.experiments.parallel import worker_init, worker_run
 from nisq_folio.experiments.store import (
     completed_task_ids,
     config_fingerprint,
@@ -29,20 +30,6 @@ from nisq_folio.experiments.store import (
     save_result,
 )
 from nisq_folio.provenance import git_state
-
-_WORKER: dict[str, Any] = {}
-
-
-def _worker_init(config_path: str) -> None:
-    """Build the per-process context once (Aer threads capped at 1 to avoid oversubscription)."""
-    config = load_config(config_path)
-    _WORKER["ctx"] = ExperimentContext.build(
-        config, git_state(config.source_path.parent), max_parallel_threads=1
-    )
-
-
-def _worker_run(task: Task) -> dict[str, Any]:
-    return run_task(task, _WORKER["ctx"])
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -114,9 +101,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             report(i, run_task(task, ctx))
     else:
         with ProcessPoolExecutor(
-            max_workers=args.workers, initializer=_worker_init, initargs=(str(config.source_path),)
+            max_workers=args.workers, initializer=worker_init, initargs=(str(config.source_path),)
         ) as pool:
-            futures = [pool.submit(_worker_run, t) for t in todo]
+            futures = [pool.submit(worker_run, t) for t in todo]
             for i, future in enumerate(as_completed(futures), 1):
                 report(i, future.result())
     print(f"done in {(time.perf_counter() - start) / 60:.1f} min", flush=True)
