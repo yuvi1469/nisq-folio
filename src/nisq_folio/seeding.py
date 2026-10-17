@@ -21,6 +21,7 @@ STREAM_NOISE_BENCHMARK = 2
 STREAM_TUNING_INSTANCES = 3  # instances used only for choosing QAOA settings (ADR-020)
 STREAM_QAOA_SHOTS = 4
 STREAM_MIXER_STUDY = 5
+STREAM_EXPERIMENT = 6
 
 
 def child_rng(root_seed: int, *keys: int) -> np.random.Generator:

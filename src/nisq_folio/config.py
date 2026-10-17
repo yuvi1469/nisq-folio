@@ -118,6 +118,51 @@ class QaoaConfig:
     tuning: QaoaTuningConfig
 
 
+DENOISING_LEVELS = ("none", "rmt_clip")
+
+
+@dataclass(frozen=True)
+class MixerSetting:
+    """One mixer's fixed protocol in the experiment (an ADR-021 selection)."""
+
+    optimizer: str
+    layers: int
+    penalty_scale: float = 1.0
+
+
+@dataclass(frozen=True)
+class ExperimentConfig:
+    """The factorial experiment grid (ADR-024).
+
+    Attributes:
+        name: Experiment name; results go to ``results/experiments/<name>/``.
+        sizes: Problem sizes N.
+        noisy_sizes: Sizes at which noise levels > 0 are run (ADR-007).
+        denoising: Denoising levels, from ``DENOISING_LEVELS``.
+        mixers: Mixers to run.
+        noise_levels: Noise levels m (0 = noiseless).
+        instances_per_size: Replicates per cell: the first evaluation instances per N.
+        backend: Fake backend for the coupling map of noisy runs.
+        mixer_settings: Mixer -> its fixed optimizer, depth and penalty scale.
+        classical_sa_budgets: Step budgets for the simulated-annealing curves.
+        noiseless_seconds_per_eval: Cost model for ``--estimate``.
+        noisy_seconds_per_eval: Mixer -> {N: seconds per noisy evaluation at m = 1}.
+    """
+
+    name: str
+    sizes: tuple[int, ...]
+    noisy_sizes: tuple[int, ...]
+    denoising: tuple[str, ...]
+    mixers: tuple[str, ...]
+    noise_levels: tuple[float, ...]
+    instances_per_size: int
+    backend: str
+    mixer_settings: dict[str, MixerSetting]
+    classical_sa_budgets: tuple[int, ...]
+    noiseless_seconds_per_eval: float
+    noisy_seconds_per_eval: dict[str, dict[int, float]]
+
+
 # Must match the RMT estimators in nisq_folio.denoise.evaluation.ESTIMATORS (checked by a test).
 DENOISE_METHODS = ("rmt_clip", "rmt_band_only")
 
@@ -224,6 +269,13 @@ class Config:
     qaoa: QaoaConfig | None = None
     mixer_study: MixerStudyConfig | None = None
     denoise: DenoiseConfig | None = None
+    experiment: ExperimentConfig | None = None
+
+    def require_experiment(self) -> ExperimentConfig:
+        """Return the ``experiment`` section, raising ConfigError if the file has none."""
+        if self.experiment is None:
+            raise ConfigError(f"{self.source_path}: this command needs an 'experiment' section")
+        return self.experiment
 
     def require_denoise(self) -> DenoiseConfig:
         """Return the ``denoise`` section, raising ConfigError if the file has none."""
@@ -326,6 +378,11 @@ def load_config(path: Path | str) -> Config:
         if isinstance(count, bool) or count < 1:
             raise ConfigError(f"{source}: denoise.evaluation_instances_per_size must be >= 1")
         denoise = DenoiseConfig(experiment_method=method, evaluation_instances_per_size=count)
+    experiment = None
+    if "experiment" in raw:
+        experiment = _parse_experiment(
+            _require(raw, "experiment", dict, source), len(universe.tickers), source
+        )
     noise_benchmark = None
     if "noise_benchmark" in raw:
         noise_benchmark = _parse_noise_benchmark(
@@ -345,6 +402,84 @@ def load_config(path: Path | str) -> Config:
         qaoa=qaoa,
         mixer_study=mixer_study,
         denoise=denoise,
+        experiment=experiment,
+    )
+
+
+def _parse_experiment(raw: dict[str, Any], n_assets: int, source: Path) -> ExperimentConfig:
+    def fail(message: str) -> ConfigError:
+        return ConfigError(f"{source}: experiment.{message}")
+
+    def int_list(key: str) -> tuple[int, ...]:
+        values = _require(raw, key, list, source)
+        if not values or any(isinstance(v, bool) or not isinstance(v, int) for v in values):
+            raise fail(f"{key} must be a non-empty list of integers")
+        return tuple(values)
+
+    def choices(key: str, allowed: tuple[str, ...]) -> tuple[str, ...]:
+        values = tuple(_require(raw, key, list, source))
+        if not values or any(v not in allowed for v in values) or len(set(values)) != len(values):
+            raise fail(f"{key} must be distinct values from {allowed}")
+        return values
+
+    sizes = int_list("sizes")
+    if any(n < 2 or n % 2 or n > n_assets for n in sizes):
+        raise fail(f"sizes must be even integers in [2, {n_assets}]")
+    noisy_sizes = int_list("noisy_sizes")
+    if not set(noisy_sizes) <= set(sizes):
+        raise fail("noisy_sizes must be a subset of sizes")
+    levels = _require(raw, "noise_levels", list, source)
+    if (
+        not levels
+        or any(isinstance(m, bool) or not isinstance(m, int | float) or m < 0 for m in levels)
+        or len(set(levels)) != len(levels)
+    ):
+        raise fail("noise_levels must be distinct numbers >= 0")
+    mixers = choices("mixers", STUDY_MIXERS)
+    raw_settings = _require(raw, "mixer_settings", dict, source)
+    settings: dict[str, MixerSetting] = {}
+    for mixer in mixers:
+        if mixer not in raw_settings or not isinstance(raw_settings[mixer], dict):
+            raise fail(f"mixer_settings needs an entry for {mixer!r}")
+        entry = raw_settings[mixer]
+        optimizer, layers = entry.get("optimizer"), entry.get("layers")
+        scale = entry.get("penalty_scale", 1.0)
+        if optimizer not in STUDY_OPTIMIZERS:
+            raise fail(f"mixer_settings.{mixer}.optimizer must be one of {STUDY_OPTIMIZERS}")
+        if isinstance(layers, bool) or not isinstance(layers, int) or layers < 1:
+            raise fail(f"mixer_settings.{mixer}.layers must be an integer >= 1")
+        if isinstance(scale, bool) or not isinstance(scale, int | float) or scale <= 0:
+            raise fail(f"mixer_settings.{mixer}.penalty_scale must be > 0")
+        settings[mixer] = MixerSetting(optimizer, layers, float(scale))
+    count = _require(raw, "instances_per_size", int, source)
+    if isinstance(count, bool) or count < 1:
+        raise fail("instances_per_size must be >= 1")
+    budgets = int_list("classical_sa_budgets")
+    if any(b < 1 for b in budgets):
+        raise fail("classical_sa_budgets must be positive")
+    cost = _require(raw, "cost_model", dict, source)
+    noiseless = _require(cost, "noiseless_seconds_per_eval", (int, float), source)
+    noisy_raw = _require(cost, "noisy_seconds_per_eval", dict, source)
+    noisy: dict[str, dict[int, float]] = {}
+    for mixer, table in noisy_raw.items():
+        if not isinstance(table, dict) or any(
+            isinstance(v, bool) or not isinstance(v, int | float) or v <= 0 for v in table.values()
+        ):
+            raise fail(f"cost_model.noisy_seconds_per_eval.{mixer} must map N to seconds > 0")
+        noisy[str(mixer)] = {int(n): float(v) for n, v in table.items()}
+    return ExperimentConfig(
+        name=_require(raw, "name", str, source),
+        sizes=sizes,
+        noisy_sizes=noisy_sizes,
+        denoising=choices("denoising", DENOISING_LEVELS),
+        mixers=mixers,
+        noise_levels=tuple(float(m) for m in levels),
+        instances_per_size=count,
+        backend=_require(raw, "backend", str, source),
+        mixer_settings=settings,
+        classical_sa_budgets=budgets,
+        noiseless_seconds_per_eval=float(noiseless),
+        noisy_seconds_per_eval=noisy,
     )
 
 

@@ -11,7 +11,7 @@ dominates wall time (ADAPT needs 2 * |pool| extra runs per layer for operator se
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
@@ -40,6 +40,8 @@ class NoisyRun:
     two_qubit_gates: int
     mixer_sequence: tuple[str, ...]
     metrics: DistributionMetrics
+    distribution: FloatArray | None = field(default=None, repr=False, compare=False)
+    """Final noisy output distribution (little-endian); not part of :meth:`as_dict`."""
 
     def as_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable summary."""
@@ -66,6 +68,7 @@ def make_evaluator(
     rates: ReferenceRates,
     backend: str = "FakeKingston",
     seed_transpiler: int = 0,
+    max_parallel_threads: int = 0,
 ) -> tuple[NoisyEvaluator, FloatArray]:
     """Build the noisy evaluator and the cost energies for a problem and mixer.
 
@@ -85,6 +88,7 @@ def make_evaluator(
     evaluator = NoisyEvaluator(
         ising, float(landscape_energies.std()), initial, problem.k, level, rates,
         backend=backend, seed_transpiler=seed_transpiler,
+        max_parallel_threads=max_parallel_threads,
     )  # fmt: skip
     return evaluator, landscape_energies
 
@@ -99,6 +103,7 @@ def run_noisy_variant(
     landscape: SolutionLandscape | None = None,
     backend: str = "FakeKingston",
     seed_transpiler: int = 0,
+    max_parallel_threads: int = 0,
 ) -> NoisyRun:
     """Run one QAOA variant under noise level m and score its final distribution exactly.
 
@@ -112,14 +117,17 @@ def run_noisy_variant(
         landscape: Precomputed scoring landscape.
         backend: Fake backend supplying the coupling map.
         seed_transpiler: Transpiler seed.
+        max_parallel_threads: Aer thread cap (0 = automatic; use 1 when running tasks in
+            parallel processes so they do not oversubscribe the CPU).
 
     Returns:
         The noisy run.
     """
     landscape = landscape or SolutionLandscape.from_problem(problem)
     evaluator, energies = make_evaluator(
-        problem, penalty_bound, settings, level, rates, backend, seed_transpiler
-    )
+        problem, penalty_bound, settings, level, rates, backend, seed_transpiler,
+        max_parallel_threads,
+    )  # fmt: skip
     p = settings.layers
     evaluations = 0
 
@@ -179,4 +187,5 @@ def run_noisy_variant(
         two_qubit_gates=evaluator.two_qubit_gates(names),
         mixer_sequence=tuple(names),
         metrics=distribution_metrics(final, landscape),
+        distribution=final,
     )

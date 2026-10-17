@@ -3,7 +3,7 @@
 > **Status: Week 8 of 14.** Data pipeline, four validated classical baselines, RMT covariance
 > denoising with an out-of-sample evaluation, QUBO/Ising encoding, a noisy-simulation benchmark,
 > noiseless QAOA with X, XY-ring and adaptive (ADAPT) mixers, and verified gate-level circuits with
-> a tunable noise model (exact density matrix) are implemented. The experiment runner is next. See [PROJECT_PLAN.md](PROJECT_PLAN.md) for scope and milestones.
+> a tunable noise model, and a resumable experiment runner are implemented. The pilot run is next. See [PROJECT_PLAN.md](PROJECT_PLAN.md) for scope and milestones.
 
 ## Overview
 
@@ -57,6 +57,10 @@ uv run python -m nisq_folio.mixers --config configs/base.yaml
 
 # Out-of-sample evaluation of covariance estimators, classical only (about 20 seconds):
 uv run python -m nisq_folio.denoise --config configs/base.yaml
+
+# The factorial experiment: predict hours first, then run (resumable; safe to interrupt):
+uv run python -m nisq_folio.experiments --config configs/base.yaml --estimate
+uv run python -m nisq_folio.experiments --config configs/base.yaml --workers 3
 ```
 
 The runtime benchmark includes noisy N=14 cases that can take hours on a laptop. To skip them,

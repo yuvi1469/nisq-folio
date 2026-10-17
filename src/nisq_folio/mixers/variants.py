@@ -104,6 +104,8 @@ class VariantRun:
     selection_shots: int
     mixer_sequence: tuple[str, ...]
     metrics: DistributionMetrics
+    distribution: FloatArray | None = field(default=None, repr=False, compare=False)
+    """Final output distribution (little-endian); not part of :meth:`as_dict`."""
 
     @property
     def total_shots(self) -> int:
@@ -232,6 +234,7 @@ def run_variant(
 
     final = evolve(initial, phases, theta[:p], theta[p:], mixers)
     probs = np.abs(final) ** 2
+    probs = probs / probs.sum()
     return VariantRun(
         gammas=np.asarray(theta[:p]),
         betas=np.asarray(theta[p:]),
@@ -239,5 +242,6 @@ def run_variant(
         optimization_shots=evaluations * settings.shots,
         selection_shots=selection_shots,
         mixer_sequence=tuple(names),
-        metrics=distribution_metrics(probs / probs.sum(), landscape),
+        metrics=distribution_metrics(probs, landscape),
+        distribution=probs,
     )

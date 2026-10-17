@@ -815,3 +815,43 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
     - (b) a cheaper "transfer" protocol: choose the ADAPT operator sequence noiselessly, then
       optimize its angles under noise;
     - (c) fewer noise levels at N = 12.
+
+## ADR-024: Experiment runner design
+
+- **Status:** Accepted (2026-10-17). This is engineering only: no scientific setting is chosen here.
+- **Cells and replicates:**
+  - A cell is (denoising, mixer, noise level m, N).
+  - The **replicates of every cell are the same first 30 evaluation instances per N** (default
+    stream). Every comparison between cells is therefore *paired by instance*. This is how the
+    plan's "30+ seeds per cell" is met.
+  - One QAOA run per (cell, instance). Its seed comes from the task identity alone:
+    (STREAM_EXPERIMENT, kind, N, instance, denoising, mixer, round(m·10⁶)).
+- **Fixed protocol:** each mixer uses its ADR-021 selection, written explicitly in
+  `experiment.mixer_settings`:
+  - x: COBYLA, p = 2, c = 0.1;
+  - xy_ring: SPSA, p = 1;
+  - adapt: COBYLA, p = 4.
+
+  Shots, budget, ramp, SPSA and ADAPT settings come from the `qaoa` and `mixer_study` sections.
+- **Noise:** m > 0 is expanded only for `noisy_sizes` = {8, 10, 12} (ADR-007). m = 0 is always
+  included as the reference. m = 0 runs on the NumPy simulator and m > 0 on the density-matrix
+  pipeline; the two are identical at m = 0 (ADR-023).
+- **Classical tasks per (N, instance, denoising):**
+  - exact optimum and worst value, greedy, Markowitz + rounding;
+  - SA at budgets {25, 50, 100, 200, 500, 2000}, for the budget-matched comparison of ADR-019;
+  - out-of-sample score of the optimum.
+- **Out-of-sample score of each QAOA run:** its most probable feasible selection (the answer one
+  would deploy) is scored on 2021–23 returns.
+- **Resumability and provenance** (`experiments/store.py`):
+  - One JSON file per finished task, written atomically, so a crash never leaves a partial file.
+  - Each file records its git state and config SHA-256 (CLAUDE.md rule 6).
+  - A directory created under one config refuses results from another config.
+  - Re-running skips finished tasks.
+- **Parallelism:** `--workers W` uses W processes with Aer capped at 1 thread each.
+  **Test-verified:** results with 2 workers are identical to serial results, and resuming does
+  not redo or alter finished tasks.
+- **Cost estimate** (`--estimate`, `experiments/cost.py`): evaluations per run × seconds per
+  evaluation from the ADR-023 measurements. It is order-of-magnitude only, given this laptop's
+  speed variability.
+  - The current grid (m = 0 only) is **960 tasks, about 0.5 h predicted**.
+  - Noisy levels and the noisy budget are fixed in W10 (ADR-025).

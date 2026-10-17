@@ -112,6 +112,7 @@ class NoisyEvaluator:
         optimization_level: int = 3,
         seed_transpiler: int = 0,
         max_memory_mb: int = 6000,
+        max_parallel_threads: int = 0,
     ) -> None:
         """Prepare an evaluator for one problem and noise level.
 
@@ -126,6 +127,7 @@ class NoisyEvaluator:
             optimization_level: Transpiler optimization level.
             seed_transpiler: Transpiler seed (CLAUDE.md rule 1).
             max_memory_mb: Aer memory cap.
+            max_parallel_threads: Aer thread cap (0 = automatic).
         """
         self.ising, self.scale, self.initial, self.k = ising, scale, initial, k
         self.level, self.rates = level, rates
@@ -135,7 +137,9 @@ class NoisyEvaluator:
         self._simulator = AerSimulator(
             method="density_matrix", noise_model=scaled_noise_model(level, rates)
         )
-        self._simulator.set_options(max_memory_mb=max_memory_mb)
+        self._simulator.set_options(
+            max_memory_mb=max_memory_mb, max_parallel_threads=max_parallel_threads
+        )
         self._cache: dict[
             tuple[str, ...], tuple[QuantumCircuit, ParameterVector, ParameterVector]
         ] = {}

@@ -77,6 +77,32 @@ denoise:
   experiment_method: rmt_clip
   evaluation_instances_per_size: 50
 
+# The factorial experiment (DECISIONS.md ADR-024). A cell is (denoising, mixer, noise level, N);
+# its replicates are the first `instances_per_size` evaluation instances, shared by every cell.
+# Noise levels > 0 run only for `noisy_sizes` (ADR-007). Noise levels are fixed in W10 (ADR-025).
+experiment:
+  name: main
+  sizes: [8, 10, 12, 14]
+  noisy_sizes: [8, 10, 12]
+  denoising: [none, rmt_clip]
+  mixers: [x, xy_ring, adapt]
+  noise_levels: [0.0]
+  instances_per_size: 30
+  backend: FakeKingston
+  mixer_settings:            # the ADR-021 selections
+    x: {optimizer: cobyla, layers: 2, penalty_scale: 0.1}
+    xy_ring: {optimizer: spsa, layers: 1}
+    adapt: {optimizer: cobyla, layers: 4}
+  classical_sa_budgets: [25, 50, 100, 200, 500, 2000]
+  # Seconds per noisy circuit evaluation at m = 1, measured in ADR-023 on this laptop; used only
+  # by --estimate. Noiseless evaluations are charged `noiseless_seconds_per_eval`.
+  cost_model:
+    noiseless_seconds_per_eval: 0.01
+    noisy_seconds_per_eval:
+      x: {8: 0.17, 10: 1.0, 12: 18.0}
+      xy_ring: {8: 0.30, 10: 3.0, 12: 44.0}
+      adapt: {8: 0.54, 10: 3.9, 12: 217.0}
+
 # Runtime benchmark for noisy simulation (DECISIONS.md ADR-007, ADR-018).
 noise_benchmark:
   backend: FakeKingston
