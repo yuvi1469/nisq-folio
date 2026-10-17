@@ -956,3 +956,31 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
     committed tests that pin its Week 9 values, and CLAUDE.md rule 4 forbids editing them.
   - The experiment fingerprint and recorded config text cover the whole chain, so a later change
     to `base.yaml` is still detected.
+
+## ADR-026: Analysis of record (pre-registered before the Week 11 grid ran)
+
+- **Status:** Accepted (2026-10-17). Tables, metrics and tests were committed before any
+  evaluation-instance QAOA result existed.
+- **Data:** the experiment of record `configs/main.yaml` (ADR-025). The noiseless results come from
+  `--max-noise 0`, i.e. the evaluation instances, 30 per N.
+- **Tables** (`analysis/summary.py`, `python -m nisq_folio.analysis`):
+  - **T1, cells:** per (denoising, mixer, N): median A [IQR], share with A > 1, median E[gap],
+    share of instances whose modal feasible selection is optimal, median total shots.
+  - **T2, mixers:** paired by instance, at denoising = none. adapt/xy_ring, xy_ring/x and adapt/x,
+    each as the geometric-mean ratio of A, the share of instances where the first is better, and
+    a Wilcoxon p.
+  - **T3, denoising:** the same paired statistics for rmt_clip/none, per (mixer, N).
+  - **T4, classical:** share of instances solved optimally by greedy, Markowitz + rounding, and SA
+    at each step budget.
+  - **T5, budget:** median QAOA total shots (optimization plus ADAPT selection) against the
+    smallest SA budget reaching ≥ 90% optimal.
+  - **T6, deployment:** median ratio of the modal selection's realized 2021–23 variance to the true
+    optimum's, plus the modal-optimal rate.
+- **Statistics:**
+  - Paired two-sided Wilcoxon signed-rank on per-instance differences of ln A, with zeros dropped.
+  - The effect size is exp(median of the ln-differences).
+  - **p-values are descriptive.** Instances share assets, so they are not independent, and no
+    correction for multiple comparisons is applied.
+- **Interpretation rule, fixed in advance:** "mixer M beats random feasible guessing at N" is stated
+  only if its median A > 1 **and** A > 1 on at least two thirds of instances. Otherwise the result
+  is reported as mixed or not supported.
