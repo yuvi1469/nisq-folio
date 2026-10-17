@@ -984,3 +984,57 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
 - **Interpretation rule, fixed in advance:** "mixer M beats random feasible guessing at N" is stated
   only if its median A > 1 **and** A > 1 on at least two thirds of instances. Otherwise the result
   is reported as mixed or not supported.
+
+### ADR-026 results (2026-10-17): noiseless results of record
+
+- **Source:** `results/experiments/main/`. All 960 tasks come from clean commit `de904a0` with a single
+  config fingerprint (`4ac40ba4…`), run with 3 workers in 2.9 min. Tables T1–T6 are saved in
+  `docs/results/noiseless_main.md`. There are 30 evaluation instances per cell.
+- **QAOA against random feasible guessing** (T1, denoising = none; median A, share of instances
+  with A > 1):
+
+  | N | ADAPT | XY ring | X |
+  |---|---|---|---|
+  | 8 | 4.01 (93%) | 2.88 (93%) | 0.73 (20%) |
+  | 10 | 4.91 (100%) | 3.08 (90%) | 0.81 (17%) |
+  | 12 | 4.92 (100%) | 2.82 (90%) | 0.90 (37%) |
+  | 14 | 4.39 (100%) | 3.09 (77%) | 0.77 (13%) |
+
+  - **By the pre-registered rule:** ADAPT and XY ring beat random feasible guessing at every N.
+    The X mixer does not at any N.
+  - This replicates the ADR-021 tuning-instance finding on independent instances.
+  - Results with rmt_clip are similar (T1).
+- **Mixers, paired** (T2; geometric-mean ratio of A; p values descriptive):
+  - ADAPT/XY: 1.61–2.29 (better on 80–97% of instances, p ≤ 6×10⁻⁴).
+  - XY/X: 2.86–3.47 (87–97%).
+  - ADAPT/X: 5.1–7.5 (93–100%).
+- **Denoising effect on QAOA** (T3): **no consistent effect.**
+  - ADAPT and XY ratios are 0.79–1.12, all p > 0.3.
+  - X is slightly *worse* with rmt_clip at N = 8 (0.89, p = 5×10⁻⁶) and N = 12 (0.87, p = 0.03).
+  - So the denoising stage does not help the QAOA stage any more than it helped the classical
+    answer (ADR-022).
+  - Side observation: with rmt_clip, **greedy** finds the optimum of the *denoised* problem on
+    97–100% of instances, against 87–93% for the sample covariance. The 3-factor matrix makes the
+    problem easier for greedy. This is not a claim about out-of-sample quality, which ADR-022
+    found slightly worse.
+- **Classical baselines** (T4, sample covariance):
+  - Greedy is optimal on 87–93% of instances.
+  - Markowitz + rounding: 83% → 33% as N grows.
+  - SA is optimal on ≥ 90% of instances with **50 steps (N ≤ 10) or 200 steps (N ≥ 12)**, and on 100%
+    with 500 steps.
+- **Budget** (T5): median QAOA sampling cost per run is about 38–41k shots (X), 102k (XY) and 340k–856k
+  (ADAPT, including selection), against **50–200 SA objective evaluations** for 90% optimal.
+  - The units differ (a shot is one sampled bitstring; an SA step is one O(1) objective
+    evaluation), but either way **classical needs about 2–4 orders of magnitude fewer samples at
+    N ≤ 14.**
+  - This confirms the ADR-019 expectation: no budget-matched quantum advantage at these sizes.
+- **Deployment** (T6), an important nuance:
+  - The X mixer's *modal* feasible selection is optimal on **63–77%** of instances (median
+    out-of-sample variance ratio to the optimum: 1.00), even though its A < 1.
+  - ADAPT's and XY's modal selections are rarely optimal (0–30%), yet close: their realized
+    out-of-sample variance is only 3–16% (median) above the optimum's.
+  - Interpretation: constraint-preserving mixers spread probability over *many good* feasible
+    selections, which raises p_opt and A. The penalized X mixer wastes most probability on
+    infeasible states, but ranks the feasible ones well.
+  - **"A > 1" and "the most likely answer is optimal" are different properties.** The report must
+    present both, as the W9 smoke run already suggested.

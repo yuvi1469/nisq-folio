@@ -1,9 +1,9 @@
 # NISQ-Folio
 
-> **Status: Week 8 of 14.** Data pipeline, four validated classical baselines, RMT covariance
+> **Status: Week 11 of 14.** Data pipeline, four validated classical baselines, RMT covariance
 > denoising with an out-of-sample evaluation, QUBO/Ising encoding, a noisy-simulation benchmark,
 > noiseless QAOA with X, XY-ring and adaptive (ADAPT) mixers, and verified gate-level circuits with
-> a tunable noise model, and a resumable experiment runner are implemented. The full experiment (configs/main.yaml) is next. See [PROJECT_PLAN.md](PROJECT_PLAN.md) for scope and milestones.
+> a tunable noise model, and a resumable experiment runner are implemented. Noiseless results of record are in docs/results/noiseless_main.md; the noisy grid is next. See [PROJECT_PLAN.md](PROJECT_PLAN.md) for scope and milestones.
 
 ## Overview
 
