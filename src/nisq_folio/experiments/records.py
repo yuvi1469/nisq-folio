@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from nisq_folio.config import Config
+from nisq_folio.config import Config, config_chain_text
 from nisq_folio.data.prices import PriceMetadata
 from nisq_folio.provenance import GitState
 
@@ -49,7 +49,7 @@ def write_run_record(
         "created_at": now.isoformat(timespec="seconds"),
         "git": asdict(git),
         "config_path": str(config.source_path),
-        "config_text": config.source_path.read_text(encoding="utf-8"),
+        "config_text": config_chain_text(config),
         "data": asdict(data),
         "results": results,
     }

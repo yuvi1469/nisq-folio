@@ -289,6 +289,8 @@ class Config:
     denoise: DenoiseConfig | None = None
     experiment: ExperimentConfig | None = None
     pilot: PilotConfig | None = None
+    source_chain: tuple[Path, ...] = ()
+    """Every file read for this config, parent first (just ``source_path`` without extends)."""
 
     def require_pilot(self) -> PilotConfig:
         """Return the ``pilot`` section, raising ConfigError if the file has none."""
@@ -345,8 +347,51 @@ class Config:
         return self.baselines
 
 
+def _read_with_extends(source: Path, seen: tuple[Path, ...]) -> tuple[dict[str, Any], list[Path]]:
+    """Read a YAML mapping, resolving ``extends: <parent.yaml>`` recursively (ADR-025).
+
+    The parent path is relative to the extending file. Mappings are merged recursively, the
+    extending file winning; any other value (lists included) replaces the parent's.
+    """
+    if source in seen:
+        raise ConfigError(f"{source}: circular 'extends' chain")
+    with source.open(encoding="utf-8") as fh:
+        raw = yaml.safe_load(fh)
+    if not isinstance(raw, dict):
+        raise ConfigError(f"{source}: expected a YAML mapping at the top level")
+    parent = raw.pop("extends", None)
+    if parent is None:
+        return raw, [source]
+    if not isinstance(parent, str):
+        raise ConfigError(f"{source}: 'extends' must be a file path")
+    base, chain = _read_with_extends((source.parent / parent).resolve(), (*seen, source))
+    return _deep_merge(base, raw), [*chain, source]
+
+
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def config_chain_text(config: Config) -> str:
+    """The exact text of the config file, or of every file in its ``extends`` chain.
+
+    For a single file this is its text unchanged; for a chain, each file's text is preceded by
+    a ``# --- <path> ---`` header, parent first.
+    """
+    chain = config.source_chain or (config.source_path,)
+    if len(chain) == 1:
+        return chain[0].read_text(encoding="utf-8")
+    return "".join(f"# --- {p} ---\n{p.read_text(encoding='utf-8')}" for p in chain)
+
+
 def load_config(path: Path | str) -> Config:
-    """Load and validate a YAML config file.
+    """Load and validate a YAML config file (optionally extending another, see ``extends``).
 
     Args:
         path: Path to the YAML file.
@@ -358,10 +403,7 @@ def load_config(path: Path | str) -> Config:
         ConfigError: If a required field is missing or the values are inconsistent.
     """
     source = Path(path).resolve()
-    with source.open(encoding="utf-8") as fh:
-        raw = yaml.safe_load(fh)
-    if not isinstance(raw, dict):
-        raise ConfigError(f"{source}: expected a YAML mapping at the top level")
+    raw, chain = _read_with_extends(source, ())
 
     base_dir = source.parent
     paths = _require(raw, "paths", dict, source)
@@ -432,6 +474,7 @@ def load_config(path: Path | str) -> Config:
         denoise=denoise,
         experiment=experiment,
         pilot=pilot,
+        source_chain=tuple(chain),
     )
 
 

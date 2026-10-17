@@ -21,7 +21,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from nisq_folio.config import Config
+from nisq_folio.config import Config, config_chain_text
 from nisq_folio.data.prices import PriceMetadata
 from nisq_folio.provenance import GitState
 
@@ -31,8 +31,8 @@ class ExperimentMismatchError(RuntimeError):
 
 
 def config_fingerprint(config: Config) -> str:
-    """SHA-256 of the config file's exact text."""
-    return hashlib.sha256(config.source_path.read_bytes()).hexdigest()
+    """SHA-256 of the config's exact text, including every file it ``extends``."""
+    return hashlib.sha256(config_chain_text(config).encode("utf-8")).hexdigest()
 
 
 def experiment_dir(config: Config) -> Path:
@@ -71,7 +71,7 @@ def open_experiment(config: Config, git: GitState, data: PriceMetadata) -> Path:
             "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "config_path": str(config.source_path),
             "config_sha256": fingerprint,
-            "config_text": config.source_path.read_text(encoding="utf-8"),
+            "config_text": config_chain_text(config),
             "git": asdict(git),
             "data": asdict(data),
         },

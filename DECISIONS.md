@@ -910,3 +910,49 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
   - Low noise levels are the least informative about the crossover, so they are dropped first.
   - Pilot instances are never evaluation instances, so choosing levels from the pilot cannot
     bias the results of record.
+
+### ADR-025 results (2026-10-17): pilot, levels {0.25, 0.5, 1}, full grid by user decision
+
+- **Run record:** `results/pilot/20261017T013226Z_f29d883.json`. Clean commit `f29d883`, the
+  pre-registration commit.
+- **Timing (s per noisy evaluation at m = 1; automatic threads | 1 thread):**
+
+  | N | X | XY ring | ADAPT |
+  |---|---|---|---|
+  | 8 | 0.07 \| 0.12 | 0.14 \| 0.28 | 0.26 \| 0.54 |
+  | 10 | 0.52 \| 2.09 | 1.48 \| 6.13 | 1.86 \| 7.22 |
+  | 12 | 12.4 | 29.2 | not run (excluded) |
+
+  These are about 1.5–2× faster than the ADR-023 measurements on the same machine, consistent with
+  its speed variability.
+  - **Rule 3:** the 3-worker gain was 1.86 / 1.53 / 1.45 at N = 8, but 0.74 / 0.73 / 0.77 at N = 10.
+    It is not above 1.2 everywhere, so **1 worker**.
+- **Bracketing at N = 8** (median A over only 2 tuning instances, so noisy; e.g. ADAPT at m = 0.25
+  exceeds its own m = 0 value):
+
+  | Mixer | m = 0 | 0.25 | 1 | 4 | Crossing (A = 1) |
+  |---|---|---|---|---|---|
+  | X | 0.56 | 0.67 | 0.63 | 0.40 | ≤ 0.25 (already < 1 at m = 0) |
+  | XY ring | 1.14 | 0.99 | 0.52 | 0.28 | ≈ 0.25 |
+  | ADAPT | 1.37 | 2.88 | 0.53 | 0.27 | ≈ 0.76 |
+
+  **At today's hardware noise (m = 1), every mixer was below random feasible guessing in the pilot.**
+- **Rule 1:** m_max = 1. **Rule 2:** levels {0.125, 0.25, 0.5, 1}. Dropping the smallest gives
+  {0.25, 0.5, 1}, the minimum of 3, which is still estimated at **233 h, over the 100 h budget**.
+  This was reported to the user as Rule 2 requires.
+- **Where the hours go:** noisy XY at N = 12, 147 h; ADAPT at N = 10, 44 h; X at N = 12, 28 h; the
+  rest about 14 h.
+- **Options offered:**
+  - A (86 h): drop noisy XY at N = 12.
+  - C (80 h): XY at N = 12 on 15 instances, and noisy runs without the denoising factor.
+  - The full grid (233 h).
+- **User decision (2026-10-17): the full grid, about 233 h, about 23 overnight runs.** The design is
+  unchanged: 3 mixers (ADAPT noisy only at N ≤ 10), both denoising levels, 30 instances, and
+  m ∈ {0, 0.25, 0.5, 1} at N ∈ {8, 10, 12}. That is 2,400 tasks, about 234 h estimated. The
+  estimate is uncertain by roughly 2× because of machine variability.
+- **Config of record:** `configs/main.yaml` extends `base.yaml` (new `extends` support, with mappings
+  merged recursively). It changes only the noise levels and the pilot cost model.
+  - `base.yaml` and its committed tests are untouched. Editing `base.yaml` would have broken two
+    committed tests that pin its Week 9 values, and CLAUDE.md rule 4 forbids editing them.
+  - The experiment fingerprint and recorded config text cover the whole chain, so a later change
+    to `base.yaml` is still detected.

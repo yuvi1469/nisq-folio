@@ -1,0 +1,19 @@
+# The configuration of record for the factorial experiment (Weeks 11-12).
+# It extends base.yaml and changes only what the W10 pilot fixed (DECISIONS.md ADR-025):
+#   - the noise levels (pilot Rules 1-2), and
+#   - the cost model (seconds per noisy evaluation measured by the pilot on this laptop).
+# The user chose the full noisy grid (~233 h) over the reduced 100 h options (ADR-025).
+#
+#   uv run python -m nisq_folio.experiments --config configs/main.yaml --estimate
+#   uv run python -m nisq_folio.experiments --config configs/main.yaml --max-noise 0   # W11
+#   uv run python -m nisq_folio.experiments --config configs/main.yaml                 # W12
+
+extends: base.yaml
+
+experiment:
+  noise_levels: [0.0, 0.25, 0.5, 1.0]
+  cost_model:
+    noisy_seconds_per_eval:
+      x: {8: 0.07, 10: 0.52, 12: 12.36}
+      xy_ring: {8: 0.14, 10: 1.48, 12: 29.18}
+      adapt: {8: 0.26, 10: 1.86}

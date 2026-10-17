@@ -73,7 +73,7 @@ and 6.6 h (N=12). The budget and the resulting noisy grid are fixed in an ADR be
 | W7 ✅ | RMT denoising | `denoise/`: Marchenko–Pastur clipping; property tests (PSD, trace preservation) |
 | W8 ✅ | Noise models | `noise/`: fake-backend + parameterised noise sweep |
 | W9 ✅ | Experiment runner | `experiments/`: config-driven grid, provenance logging (config + git hash), resumable |
-| W10 | Pilot run | Small grid end-to-end; sanity checks; fix factor levels |
+| W10 ✅ | Pilot run | Small grid end-to-end; sanity checks; fix factor levels |
 | W11 | Full noiseless grid | All N, all seeds |
 | W12 | Noisy grid | Restricted N per ADR-007 |
 | W13 | Analysis + dashboard | `analysis/` statistics, crossover estimate with CIs; Streamlit dashboard |
