@@ -34,3 +34,10 @@ htmlcov/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Paper build outputs (rebuild with: tectonic -X compile paper/main.tex)
+/paper/*.pdf
+/paper/*.log
+/paper/*.blg
+/paper/*.aux
+/paper/*.bbl
