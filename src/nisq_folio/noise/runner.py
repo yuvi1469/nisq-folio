@@ -69,6 +69,7 @@ def make_evaluator(
     backend: str = "FakeKingston",
     seed_transpiler: int = 0,
     max_parallel_threads: int = 0,
+    routing: str = "full_device",
 ) -> tuple[NoisyEvaluator, FloatArray]:
     """Build the noisy evaluator and the cost energies for a problem and mixer.
 
@@ -88,7 +89,7 @@ def make_evaluator(
     evaluator = NoisyEvaluator(
         ising, float(landscape_energies.std()), initial, problem.k, level, rates,
         backend=backend, seed_transpiler=seed_transpiler,
-        max_parallel_threads=max_parallel_threads,
+        max_parallel_threads=max_parallel_threads, routing=routing,
     )  # fmt: skip
     return evaluator, landscape_energies
 
@@ -104,6 +105,7 @@ def run_noisy_variant(
     backend: str = "FakeKingston",
     seed_transpiler: int = 0,
     max_parallel_threads: int = 0,
+    routing: str = "full_device",
 ) -> NoisyRun:
     """Run one QAOA variant under noise level m and score its final distribution exactly.
 
@@ -119,6 +121,7 @@ def run_noisy_variant(
         seed_transpiler: Transpiler seed.
         max_parallel_threads: Aer thread cap (0 = automatic; use 1 when running tasks in
             parallel processes so they do not oversubscribe the CPU).
+        routing: Qubit placement, see ``noise.density.ROUTING_MODES`` (ADR-027).
 
     Returns:
         The noisy run.
@@ -126,7 +129,7 @@ def run_noisy_variant(
     landscape = landscape or SolutionLandscape.from_problem(problem)
     evaluator, energies = make_evaluator(
         problem, penalty_bound, settings, level, rates, backend, seed_transpiler,
-        max_parallel_threads,
+        max_parallel_threads, routing,
     )  # fmt: skip
     p = settings.layers
     evaluations = 0

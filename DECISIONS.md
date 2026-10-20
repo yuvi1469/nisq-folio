@@ -1038,3 +1038,43 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
     infeasible states, but ranks the feasible ones well.
   - **"A > 1" and "the most likely answer is optimal" are different properties.** The report must
     present both, as the W9 smoke run already suggested.
+
+## ADR-027: Compact-region routing; noisy grid restarted as `main_r2`
+
+- **Status:** Accepted (2026-10-20). The user chose to re-run every noisy task with the fix.
+- **Failure found in Week 12:**
+  - The first N = 10 noisy ADAPT task stopped with Aer's "Insufficient memory … Required 16384M,
+    max 6000M".
+  - Under full-device routing (ADR-023), the transpiler routed the 10-qubit circuit through 15
+    physical qubits of the 156-qubit coupling map. Ancilla qubits were used for SWAP paths between
+    far-apart XY pairs, and a 15-qubit density matrix needs 16 GB.
+  - Aer's refusal was correct. The design flaw was letting routing grow the simulated register
+    beyond N.
+  - The runner stopped cleanly after the last N = 8 task (540/1,440 noisy tasks done, every result
+    intact). The error message had been hidden because I sent the session's stderr to /dev/null to
+    suppress warnings. Future sessions keep stderr.
+- **Decision:**
+  - Every noisy N-qubit circuit is transpiled onto a fixed connected **N-qubit region** of the
+    FakeKingston coupling map (`noise/density.py::compact_region`: breadth-first from qubit 0,
+    neighbours in index order, so the region is deterministic). Exactly N qubits are simulated.
+  - This is selected by `experiment.routing: compact_region`. The default stays `full_device`,
+    so earlier configs, tests and records are unaffected.
+- **Why the choice of region does not bias results:** the noise model applies the same scaled
+  median error to every qubit (ADR-023). Routing *within* the region still pays for heavy-hex
+  connectivity with SWAPs. CZ counts are similar to before, e.g. XY at N = 12 has 1,057 against 1,053.
+- **Verification:**
+  - At m = 0 with compact routing, a far-pair N = 10 ADAPT sequence matches the NumPy state to
+    8×10⁻¹⁷.
+  - Whole noisy runs at m = 0 equal noiseless runs (tests in `tests/test_compact_routing.py`).
+- **Measured cost per noisy evaluation, compact routing at m = 1:** ADAPT N = 10, 2.22 s;
+  XY N = 10, 1.05 s; X N = 12, 12.8 s; XY N = 12, 25.2 s.
+- **Consistency decision (user, 2026-10-20):**
+  - The 540 N = 8 noisy results computed under full-device routing are **superseded**, not
+    deleted. They stay in `results/experiments/main/` and are not used for any reported result.
+  - The experiment of record is restarted as `main_r2` (configs/main.yaml), with compact routing
+    for *every* noisy task.
+  - Its noiseless part is re-run too, as a reproducibility check against ADR-026: it does not
+    depend on routing, so it must reproduce the earlier noiseless metrics exactly.
+- **Stalls:** about 55 h of wall time were lost to Modern Standby during the first session (charger
+  unplugged, lid closed). A keep-awake helper (SetThreadExecutionState, no settings changed) now
+  runs alongside, but it cannot override lid close or battery policy.

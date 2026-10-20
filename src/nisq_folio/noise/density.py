@@ -25,6 +25,7 @@ from dataclasses import dataclass
 import numpy as np
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit import ParameterVector
+from qiskit.transpiler import CouplingMap
 from qiskit_aer import AerSimulator
 from qiskit_aer.noise import NoiseModel, depolarizing_error
 
@@ -34,6 +35,15 @@ from nisq_folio.problem import FloatArray
 from nisq_folio.qubo.encoding import IsingModel
 
 BASIS_GATES = ("cz", "rz", "sx", "x")
+ROUTING_MODES = ("full_device", "compact_region")
+"""How circuits are placed on the device (ADR-027).
+
+``full_device``: the transpiler may use any of the device's qubits, so routing can pull in
+ancilla qubits (more qubits to simulate: a 10-qubit circuit once needed 15, i.e. 16 GB).
+``compact_region``: the circuit is confined to a fixed connected N-qubit region of the coupling
+map (:func:`compact_region`), so exactly N qubits are simulated. With a qubit-uniform noise model
+the choice of region does not bias results.
+"""
 ZERO_THRESHOLD = 1e-15
 
 
@@ -97,6 +107,27 @@ def apply_readout_error(probabilities: FloatArray, flip: float) -> FloatArray:
     return tensor.reshape(-1)
 
 
+def compact_region(coupling_map: CouplingMap, n: int) -> list[int]:
+    """Return N physical qubits forming a connected region: breadth-first from qubit 0.
+
+    Neighbours are visited in increasing index order, so the region is deterministic.
+    """
+    graph = coupling_map.graph.to_undirected(multigraph=False)
+    if n > graph.num_nodes():
+        raise ValueError(f"device has only {graph.num_nodes()} qubits, need {n}")
+    region, frontier, seen = [], [0], {0}
+    while frontier and len(region) < n:
+        node = frontier.pop(0)
+        region.append(node)
+        for neighbour in sorted(graph.neighbors(node)):
+            if neighbour not in seen:
+                seen.add(neighbour)
+                frontier.append(neighbour)
+    if len(region) < n:
+        raise ValueError(f"could not find a connected region of {n} qubits")
+    return region
+
+
 class NoisyEvaluator:
     """Exact output distributions of QAOA circuits under the scaled noise model."""
 
@@ -113,6 +144,7 @@ class NoisyEvaluator:
         seed_transpiler: int = 0,
         max_memory_mb: int = 6000,
         max_parallel_threads: int = 0,
+        routing: str = "full_device",
     ) -> None:
         """Prepare an evaluator for one problem and noise level.
 
@@ -128,10 +160,15 @@ class NoisyEvaluator:
             seed_transpiler: Transpiler seed (CLAUDE.md rule 1).
             max_memory_mb: Aer memory cap.
             max_parallel_threads: Aer thread cap (0 = automatic).
+            routing: One of :data:`ROUTING_MODES`.
         """
         self.ising, self.scale, self.initial, self.k = ising, scale, initial, k
         self.level, self.rates = level, rates
+        if routing not in ROUTING_MODES:
+            raise ValueError(f"routing must be one of {ROUTING_MODES}, got {routing!r}")
         self._coupling = fake_backend(backend).coupling_map
+        if routing == "compact_region":
+            self._coupling = self._coupling.reduce(compact_region(self._coupling, ising.n))
         self._optimization_level = optimization_level
         self._seed = seed_transpiler
         self._simulator = AerSimulator(

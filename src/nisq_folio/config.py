@@ -119,6 +119,8 @@ class QaoaConfig:
 
 
 DENOISING_LEVELS = ("none", "rmt_clip")
+# Must match nisq_folio.noise.density.ROUTING_MODES (checked by a test).
+ROUTING_MODES = ("full_device", "compact_region")
 
 
 @dataclass(frozen=True)
@@ -148,6 +150,7 @@ class ExperimentConfig:
         noiseless_seconds_per_eval: Cost model for ``--estimate``.
         noisy_seconds_per_eval: Mixer -> {N: seconds per noisy evaluation at m = 1}.
         noisy_exclusions: Mixer -> sizes at which it runs noiselessly only (ADR-025).
+        routing: Qubit placement of noisy circuits (ADR-027); default ``full_device``.
     """
 
     name: str
@@ -163,6 +166,7 @@ class ExperimentConfig:
     noiseless_seconds_per_eval: float
     noisy_seconds_per_eval: dict[str, dict[int, float]]
     noisy_exclusions: dict[str, tuple[int, ...]] = field(default_factory=dict)
+    routing: str = "full_device"
 
 
 @dataclass(frozen=True)
@@ -591,6 +595,9 @@ def _parse_experiment(raw: dict[str, Any], n_assets: int, source: Path) -> Exper
         if mixer not in mixers or not isinstance(ns, list) or not set(ns) <= set(noisy_sizes):
             raise fail(f"noisy_exclusions.{mixer} must list noisy sizes of a configured mixer")
         exclusions[str(mixer)] = tuple(int(n) for n in ns)
+    routing = raw.get("routing", "full_device")
+    if routing not in ROUTING_MODES:
+        raise fail(f"routing must be one of {ROUTING_MODES}")
     return ExperimentConfig(
         name=_require(raw, "name", str, source),
         sizes=sizes,
@@ -605,6 +612,7 @@ def _parse_experiment(raw: dict[str, Any], n_assets: int, source: Path) -> Exper
         noiseless_seconds_per_eval=float(noiseless),
         noisy_seconds_per_eval=noisy,
         noisy_exclusions=exclusions,
+        routing=routing,
     )
 
 

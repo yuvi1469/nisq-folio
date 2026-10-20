@@ -206,6 +206,7 @@ def _qaoa(
             backend=ctx.config.require_experiment().backend,
             seed_transpiler=seed_transpiler,
             max_parallel_threads=ctx.max_parallel_threads,
+            routing=ctx.config.require_experiment().routing,
         )
     probs = run.distribution
     assert probs is not None

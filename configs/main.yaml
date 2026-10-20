@@ -1,19 +1,24 @@
 # The configuration of record for the factorial experiment (Weeks 11-12).
-# It extends base.yaml and changes only what the W10 pilot fixed (DECISIONS.md ADR-025):
-#   - the noise levels (pilot Rules 1-2), and
-#   - the cost model (seconds per noisy evaluation measured by the pilot on this laptop).
-# The user chose the full noisy grid (~233 h) over the reduced 100 h options (ADR-025).
+# It extends base.yaml and changes only what later decisions fixed:
+#   - the noise levels (W10 pilot Rules 1-2, ADR-025),
+#   - compact-region routing so every noisy N-qubit circuit uses exactly N qubits (ADR-027),
+#   - the cost model (seconds per noisy evaluation measured on this laptop; ADR-025/027).
+# The user chose the full noisy grid over the reduced 100 h options (ADR-025), and chose to
+# re-run every noisy task with the corrected routing (ADR-027). The first run under the old
+# routing ("main") is kept on disk as superseded and is not used for results.
 #
 #   uv run python -m nisq_folio.experiments --config configs/main.yaml --estimate
-#   uv run python -m nisq_folio.experiments --config configs/main.yaml --max-noise 0   # W11
-#   uv run python -m nisq_folio.experiments --config configs/main.yaml                 # W12
+#   uv run python -m nisq_folio.experiments --config configs/main.yaml --max-noise 0   # noiseless
+#   uv run python -m nisq_folio.experiments --config configs/main.yaml                 # all
 
 extends: base.yaml
 
 experiment:
+  name: main_r2
+  routing: compact_region
   noise_levels: [0.0, 0.25, 0.5, 1.0]
   cost_model:
     noisy_seconds_per_eval:
-      x: {8: 0.07, 10: 0.52, 12: 12.36}
-      xy_ring: {8: 0.14, 10: 1.48, 12: 29.18}
-      adapt: {8: 0.26, 10: 1.86}
+      x: {8: 0.07, 10: 0.52, 12: 12.84}
+      xy_ring: {8: 0.14, 10: 1.05, 12: 25.22}
+      adapt: {8: 0.26, 10: 2.22}
