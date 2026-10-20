@@ -1,0 +1,317 @@
+% NISQ-Folio paper draft. Build: pdflatex main && bibtex main && pdflatex main && pdflatex main
+% (or upload the paper/ folder to Overleaf). Tables in generated/ come from paper/make_tables.py.
+% Text marked \pending{...} depends on the Week 12 noisy grid and must be completed before submission.
+\documentclass[11pt]{article}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
+
+\newcommand{\pending}[1]{\textcolor{red}{[PENDING (Week 12 noisy grid): #1]}}
+\newcommand{\todo}[1]{\textcolor{orange}{[TODO: #1]}}
+\newcommand{\Amp}{\mathcal{A}}
+
+\title{Constraint-preserving and adaptive mixers in noisy QAOA for cardinality-constrained
+portfolio selection: a pre-registered benchmark against classical baselines}
+
+\author{
+  Yuvaraj Guliani\thanks{Equal contribution.}\\
+  S P Jain School of Global Management\\
+  \texttt{yuvaraj.bs24dmu057@spjain.org}
+  \and
+  Kallol Das\footnotemark[1]\\
+  \todo{affiliation and e-mail}
+}
+\date{Draft, \today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We benchmark a hybrid quantum--classical pipeline for cardinality-constrained portfolio
+selection: random-matrix-theory (RMT) covariance denoising, a QUBO encoding with a provably
+exact cardinality penalty, and the quantum approximate optimization algorithm (QAOA) with a
+standard transverse-field mixer, a constraint-preserving XY mixer, and an adaptive (ADAPT)
+mixer. On 30 US equities (2015--2023) and problem sizes of 8 to 14 assets, every design choice,
+tuning rule and analysis was pre-registered before the corresponding results existed, and all
+comparisons are paired over the same 30 out-of-sample instances per cell. In noiseless
+simulation, the XY and ADAPT mixers place 2.8--3.1$\times$ and 4.0--4.9$\times$ more probability
+on the optimal portfolio than uniform random feasible guessing, whereas the penalized standard
+mixer does not exceed random guessing at any size. Classical simulated annealing nevertheless
+finds the optimum on at least 90\% of instances with 50--200 objective evaluations, two to four
+orders of magnitude fewer samples than QAOA uses. RMT denoising improves neither the classical
+optimum out of sample nor QAOA. Under a depolarizing-plus-readout noise model calibrated to IBM
+Heron-class median error rates, \pending{the noise level at which each mixer's advantage over
+random feasible guessing vanishes, with confidence intervals, and how it scales with $N$}.
+Code, configurations, run records and the full decision log are openly available.
+\end{abstract}
+
+\section{Introduction}
+Portfolio selection under a cardinality constraint (choosing exactly $K$ of $N$ assets) is a
+natural target for near-term quantum optimization: the mean-variance objective of
+\citet{markowitz1952} becomes a quadratic unconstrained binary optimization (QUBO) problem once
+the constraint is moved into a penalty~\citep{lucas2014}, and QUBOs map directly onto the cost
+Hamiltonians of the quantum approximate optimization algorithm (QAOA)~\citep{farhi2014qaoa}.
+Portfolio optimization is among the most studied financial applications of quantum
+computing~\citep{egger2020,herman2023}, including QAOA studies with hard constraints and
+finite-shot and hardware noise~\citep{hodson2019,brandhofer2022}.
+
+Two questions are central for noisy intermediate-scale quantum (NISQ) devices~\citep{preskill2018}.
+First, does a carefully engineered pipeline beat \emph{classical} baselines? Second, how much
+noise can it tolerate before any quantum effect disappears? General bounds suggest that noise
+strongly limits optimization on current devices~\citep{stilckfranca2021}; we ask the question
+empirically for a specific, complete pipeline.
+
+We combine three ingredients that are usually studied separately: (i) RMT eigenvalue clipping of
+the covariance matrix~\citep{laloux1999,bun2017}; (ii) a QUBO with a cardinality penalty that is
+\emph{provably} exact without knowing the optimum; and (iii) QAOA with the standard X mixer, the
+constraint-preserving XY mixer of the quantum alternating operator ansatz~\citep{hadfield2019,wang2020xy}
+started from a Dicke state~\citep{bartschi2019dicke}, and the adaptive ADAPT-QAOA mixer~\citep{zhu2022adapt}.
+
+\paragraph{Contributions.}
+\begin{itemize}
+  \item A fully pre-registered, paired factorial benchmark (denoising $\times$ mixer $\times$ noise
+        level $\times$ problem size, 30 instances per cell), with every decision recorded before the
+        corresponding result existed~\citep{nosek2018}.
+  \item A success metric that cannot be met by blind sampling: amplification over random feasible
+        guessing, measured exactly on the final output distribution (Section~\ref{sec:metric}).
+  \item Evidence that constraint-preserving and adaptive mixers, but not the penalized standard
+        mixer, beat random feasible guessing in noiseless simulation, while classical heuristics
+        remain orders of magnitude cheaper at these sizes.
+  \item A null result for RMT denoising on this universe, with a mechanism.
+  \item \pending{the measured noise crossover per mixer and its dependence on $N$}.
+\end{itemize}
+
+\section{Problem formulation}\label{sec:problem}
+Let $\mu\in\mathbb{R}^N$ and $\Sigma\in\mathbb{R}^{N\times N}$ be the annualized mean returns and
+covariance of $N$ assets, estimated from daily returns. A selection $x\in\{0,1\}^N$ with
+$\mathbf{1}^\top x=K$ is held in equal weights $w=x/K$, and we minimize the mean-variance objective
+\begin{equation}
+  f(x) \;=\; \lambda\, w^\top\Sigma w - \mu^\top w
+       \;=\; \frac{\lambda}{K^2}\, x^\top\Sigma x - \frac{1}{K}\,\mu^\top x ,
+  \qquad \mathbf{1}^\top x = K,
+  \label{eq:objective}
+\end{equation}
+with $K=N/2$. Equal weights make the decision purely binary, so one qubit encodes one asset.
+
+\paragraph{Risk aversion.} For each instance we compute
+$\lambda_{\mathrm{bal}}=\mathrm{sd}_S[\mu^\top w]/\mathrm{sd}_S[w^\top\Sigma w]$ over all
+$\binom{N}{K}$ selections $S$, the value at which return and risk vary equally across the feasible
+set. We fix $\lambda=4.5$, the median of $\lambda_{\mathrm{bal}}$ over 200 seeded in-sample
+instances rounded to $0.5$, chosen before any solver was evaluated. Smaller $\lambda$ makes the
+problem collapse towards ``pick the $K$ highest-return assets''.
+
+\paragraph{QUBO and an exact penalty.} With $a=\lambda/K^2$, $b=1/K$ and penalty weight $P$,
+\begin{equation}
+  E(x) = f(x) + P(\mathbf{1}^\top x - K)^2
+       = x^\top\!\left(a\Sigma + P\mathbf{1}\mathbf{1}^\top + \operatorname{diag}(-b\mu - 2PK)\right)\! x + PK^2 .
+\end{equation}
+Let $f_{\mathrm{ub}}$ be the objective of any feasible selection (we use greedy) and, for each
+cardinality $m$, $L_m = a\,\lambda_{\min}(\Sigma)\,m - b\sum_{i\le m}\mu_{(i)}$, where $\mu_{(i)}$
+are the returns in decreasing order. Then $L_m\le f(x)$ for every $x$ with $m$ ones, and choosing
+\begin{equation}
+  P > \max_{m\ne K}\; \frac{f_{\mathrm{ub}} - L_m}{(m-K)^2}
+  \label{eq:penalty}
+\end{equation}
+guarantees $E(x) > f_{\mathrm{ub}} \ge f^\ast$ for every infeasible $x$, so the global QUBO minimum
+is the constrained optimum. The bound uses only cheap quantities; it never uses $f^\ast$. On real
+instances it is exact in 200 of 200 cases and 7--11 times larger than the smallest exact penalty.
+
+\section{Methods}\label{sec:methods}
+\subsection{Data and covariance estimation}
+We use daily adjusted closes of 30 large US equities, five in each of six GICS sectors, from
+2015-01-02 to 2023-12-29 (2{,}264 trading days, no missing values). Moments are estimated on
+2015--2020 (1{,}510 days); selected portfolios are evaluated on 2021--2023, which no solver sees.
+The selection is subject to survivorship bias: all names were chosen knowing they existed through
+2023, so absolute returns are optimistic; all solvers see identical inputs.
+
+\paragraph{RMT denoising.} For $N$ standardized uncorrelated series of length $T$, sample
+correlation eigenvalues follow the Marchenko--Pastur law~\citep{marchenko1967} on
+$[\lambda_-,\lambda_+]=[(1-\sqrt{q})^2,(1+\sqrt{q})^2]$, $q=N/T$. Following~\citet{laloux1999}
+and~\citet{bun2017}, eigenvalue clipping keeps eigenvalues above $\lambda_+$, replaces the rest by
+their mean (preserving the trace), keeps the eigenvectors, and renormalizes to unit diagonal. We
+clean the 30-asset universe correlation ($q=0.020$) and each instance uses its block. We also
+report Ledoit--Wolf shrinkage~\citep{ledoit2004} as a non-RMT reference.
+
+\subsection{QAOA and mixers}
+For cost Hamiltonian $H_C$ (the Ising form of $E$ or $f$, rescaled by the standard deviation of its
+energy under uniform spins) and mixer $M$, the depth-$p$ state is
+$\lvert\gamma,\beta\rangle=\prod_{l=1}^{p} e^{-i\beta_l M_l} e^{-i\gamma_l H_C}\lvert\psi_0\rangle$.
+\begin{itemize}
+  \item \textbf{X mixer:} $M=\sum_i X_i$, $\lvert\psi_0\rangle=\lvert{+}\rangle^{\otimes N}$, cost $E$ with
+        penalty $P=c\times$\eqref{eq:penalty}.
+  \item \textbf{XY ring:} $M$ is one parity-ordered Trotter step of $\sum_i (X_iX_{i+1}+Y_iY_{i+1})/2$,
+        which preserves Hamming weight~\citep{hadfield2019,wang2020xy}; $\lvert\psi_0\rangle$ is the Dicke
+        state $\lvert D^N_K\rangle$~\citep{bartschi2019dicke}; cost $f$ only, since infeasible states are
+        never reached noiselessly.
+  \item \textbf{ADAPT:} following~\citet{zhu2022adapt}, layer $l$'s mixer is chosen from a pool of
+        weight-preserving operators $\{$XY ring$\}\cup\{(X_iX_j+Y_iY_j)/2\}$ by the largest shot-estimated
+        energy gradient; the shots spent on this selection are counted in every budget comparison.
+\end{itemize}
+Each energy evaluation uses $S=1{,}024$ shots sampled from the exact distribution, as on hardware;
+angles are optimized with COBYLA~\citep{powell1994} or SPSA~\citep{spall1992} within 100
+evaluations, from a linear-ramp initialization. Settings (depth, optimizer, penalty scale) were
+chosen on separate tuning instances by a pre-registered rule; the selections are X: COBYLA,
+$p=2$, $c=0.1$; XY ring: SPSA, $p=1$; ADAPT: COBYLA, $p=4$.
+
+\subsection{Success metric}\label{sec:metric}
+A QAOA run draws $10^4$--$10^6$ samples, more than the $2^N\le16{,}384$ bitstrings at our sizes,
+so the best sampled solution would also be found by blind guessing. We therefore score the
+final distribution $p(x)$ exactly by its amplification over uniform random feasible guessing,
+\begin{equation}
+  \Amp = \frac{p_{\mathrm{opt}}}{m/\binom{N}{K}}, \qquad p_{\mathrm{opt}} = \sum_{x\ \text{optimal}} p(x),
+\end{equation}
+where $m$ is the number of optimal selections. $\Amp>1$ means QAOA beats random feasible guessing,
+and probability on infeasible states counts against it. The \emph{noise crossover} is the noise
+level at which the median $\Amp$ across instances falls to $1$. We also report the expected
+normalized gap, whether the modal (most probable) feasible selection is optimal, and the
+out-of-sample risk of that modal selection.
+
+\subsection{Noise model and simulation}
+A single knob, the noise level $m_{\mathrm{noise}}$, multiplies the median error rates of the IBM
+Heron-class fake backend FakeKingston (single-qubit $2.36\times10^{-4}$, CZ $1.83\times10^{-3}$, readout
+$9.52\times10^{-3}$), so $m_{\mathrm{noise}}=1$ approximates today's hardware. Gate errors are
+depolarizing with parameter $r\,d/(d-1)$ ($d=2^n$), so that the average gate infidelity equals the
+error rate $r$; readout is an independent symmetric bit flip. Circuits (including a Dicke-state
+preparation and XY gates) are transpiled onto a connected $N$-qubit region of the device's
+heavy-hex coupling map and simulated exactly as density matrices with Qiskit and Qiskit
+Aer~\citep{javadiabhari2024qiskit}. At $m_{\mathrm{noise}}=0$ the noisy pipeline reproduces the
+noiseless simulator to $10^{-15}$. Thermal relaxation and crosstalk are not modelled.
+
+\subsection{Classical baselines}
+Exhaustive search (the exact optimum), greedy forward selection, simulated annealing~\citep{kirkpatrick1983}
+with feasibility-preserving swap moves at several step budgets, and the continuous long-only
+Markowitz relaxation rounded to its $K$ largest weights.
+
+\section{Experimental design}\label{sec:design}
+A cell is (denoising $\in\{$none, RMT$\}$, mixer, noise level, $N$). Every cell uses the same 30
+evaluation instances per $N$ (random $N$-subsets of the universe, drawn from a seeded stream),
+so all comparisons are paired. Noise levels $m_{\mathrm{noise}}\in\{0,0.25,0.5,1\}$ were fixed by a
+pre-registered pilot on separate tuning instances; noisy runs cover $N\in\{8,10,12\}$ (ADAPT:
+$N\le10$, as exact noisy ADAPT at $N=12$ is computationally infeasible here), and $N=14$ is
+noiseless only. The full grid has 2{,}400 tasks. Every run records its configuration, data
+checksum and code commit; all randomness derives from one root seed. Paired comparisons use
+two-sided Wilcoxon signed-rank tests on $\ln\Amp$ differences; because instances share assets,
+$p$-values are descriptive.
+
+\section{Results}\label{sec:results}
+\subsection{Classical baselines}
+Table~\ref{tab:classical} shows that classical heuristics are strong at these sizes: greedy is
+optimal on 87--93\% of instances and simulated annealing reaches 100\% with 500 steps.
+\begin{table}[ht]\centering\small
+\caption{Share of evaluation instances solved optimally (sample covariance, 30 instances per $N$).}
+\label{tab:classical}
+\input{generated/classical.tex}
+\end{table}
+
+\subsection{Noiseless QAOA}
+\begin{table}[ht]\centering\small
+\caption{Noiseless amplification $\Amp$ over random feasible guessing: median [IQR] (share of
+instances with $\Amp>1$), sample covariance.}
+\label{tab:amp}
+\resizebox{\linewidth}{!}{\input{generated/noiseless_amplification.tex}}
+\end{table}
+By the pre-registered criterion (median $\Amp>1$ and $\Amp>1$ on at least two thirds of
+instances), the XY and ADAPT mixers beat random feasible guessing at every size and the X mixer
+at none (Table~\ref{tab:amp}). Paired over instances, ADAPT exceeds XY by a geometric-mean factor
+of 1.6--2.3 and XY exceeds X by 2.9--3.5 (Table~\ref{tab:mixers}). The X mixer's weakness tracks
+the penalty: smaller penalty scales were consistently better in tuning, and a shot-noise-robust
+optimizer (SPSA) did not help it.
+\begin{table}[ht]\centering\small
+\caption{Paired mixer comparisons: geometric-mean ratio of $\Amp$ (share of instances where the
+first mixer is better).}
+\label{tab:mixers}
+\input{generated/mixer_ratios.tex}
+\end{table}
+
+\paragraph{Probability on the optimum versus the most likely answer.} A high $\Amp$ does not imply
+that the most probable selection is optimal (Table~\ref{tab:deployment}): the X mixer's modal
+feasible selection is optimal on 63--77\% of instances despite $\Amp<1$, while the
+constraint-preserving mixers spread probability over many good selections; their modal selections
+are rarely optimal, but their realized out-of-sample variance is only a few percent above the
+optimum's.
+\begin{table}[ht]\centering\small
+\caption{Modal feasible selection: share optimal / median ratio of its realized 2021--2023 variance
+to the optimum's (sample covariance).}
+\label{tab:deployment}
+\input{generated/deployment.tex}
+\end{table}
+
+\subsection{Sampling budget}
+Table~\ref{tab:budget} compares QAOA's sampling cost with the number of simulated-annealing steps
+needed for 90\% optimal. Although a shot and an annealing step are different units, classical
+search needs two to four orders of magnitude fewer samples at $N\le14$.
+\begin{table}[ht]\centering\small
+\caption{Median QAOA shots per run (optimization plus ADAPT operator selection) versus the smallest
+simulated-annealing budget that is optimal on $\geq90\%$ of instances.}
+\label{tab:budget}
+\input{generated/budget.tex}
+\end{table}
+
+\subsection{RMT denoising}
+On the universe, 25 of 30 correlation eigenvalues lie \emph{below} the Marchenko--Pastur band, which
+noise cannot produce at $q=0.02$; clipping replaces 27 of 30 eigenvalues and effectively imposes a
+three-factor model. When it changes the classical optimum (26--44\% of instances), the selected
+portfolio has higher realized out-of-sample variance more often than not
+(Table~\ref{tab:denoise}), and its correlation estimate is further from the out-of-sample
+correlation than the sample estimate. In a synthetic one-factor model, clipping beat the sample
+estimate on 10 of 10 seeds when the non-market spectrum was flat, but lost on 9 of 10 when genuine
+structure lay below the band, the regime the real data resembles. Denoising also has no consistent
+effect on QAOA (Table~\ref{tab:denoise-qaoa}).
+\begin{table}[ht]\centering\small
+\caption{RMT clipping versus sample covariance for the exact classical optimum, evaluated out of
+sample (50 instances per $N$).}
+\label{tab:denoise}
+\input{generated/denoise_evaluation.tex}
+\end{table}
+\begin{table}[ht]\centering\small
+\caption{Effect of RMT denoising on QAOA: paired geometric-mean ratio of $\Amp$ (share of instances
+improved).}
+\label{tab:denoise-qaoa}
+\input{generated/denoising_qaoa.tex}
+\end{table}
+
+\subsection{Noise}
+\pending{amplification versus noise level per mixer and $N$ (figure); crossover estimates with
+bootstrap confidence intervals; effect on feasibility leakage and out-of-sample risk; comparison of
+the $N=8$ results under full-device and compact routing as a robustness check}.
+
+\section{Discussion and limitations}
+At the sizes that can be simulated exactly, the quantum part of the pipeline shows a genuine but
+modest effect, and only with mixers that respect the constraint. It does not compete with classical
+heuristics on cost, and its first stage (RMT denoising) does not help on this universe.
+\pending{interpretation of the noise crossover relative to current hardware}.
+
+Limitations: equal weights rather than continuous weights; a single 30-stock universe with
+survivorship bias and a single out-of-sample period; $N\le14$, where exact search is trivial, so
+conclusions concern trends rather than practical speed-ups; a depolarizing-plus-readout noise model
+without relaxation or crosstalk, applied uniformly to all qubits; exact noisy ADAPT only up to
+$N=10$; and descriptive rather than confirmatory $p$-values.
+
+\section{Conclusion}
+\pending{one-paragraph conclusion once the noise crossover is measured}.
+
+\section*{Data and code availability}
+All code, configurations, the decision log (27 numbered decision records, including pre-registrations and
+their results), and the scripts that generate every table are available at
+\url{https://github.com/yuvi1469/nisq-folio}. Raw market data are not redistributed; the code
+downloads them from Yahoo Finance and verifies the snapshot by checksum.
+
+\section*{Author contributions}
+Both authors contributed equally to this work.
+
+\section*{Use of AI assistance}
+Software development, analysis scripts and drafting of this manuscript were assisted by an AI
+system (Anthropic's Claude). All references were checked against their DOI or arXiv records. The
+authors take full responsibility for the content. \todo{confirm this wording meets the target
+journal's policy}
+
+\bibliographystyle{unsrtnat}
+\bibliography{references}
+\end{document}
