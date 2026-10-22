@@ -26,7 +26,8 @@ portfolio selection: a pre-registered benchmark against classical baselines}
   \texttt{yuvaraj.bs24dmu057@spjain.org}
   \and
   Kallol Das\footnotemark[1]\\
-  \todo{affiliation and e-mail}
+  S P Jain School of Global Management\\
+  \texttt{kallol.das@spjain.org}
 }
 \date{Draft, \today}
 
@@ -47,8 +48,11 @@ mixer does not exceed random guessing at any size. Classical simulated annealing
 finds the optimum on at least 90\% of instances with 50--200 objective evaluations, two to four
 orders of magnitude fewer samples than QAOA uses. RMT denoising improves neither the classical
 optimum out of sample nor QAOA. Under a depolarizing-plus-readout noise model calibrated to IBM
-Heron-class median error rates, \pending{the noise level at which each mixer's advantage over
-random feasible guessing vanishes, with confidence intervals, and how it scales with $N$}.
+Heron-class median error rates, the advantage of both constraint-preserving mixers vanishes
+below today's error rates: at $N=8$ the median amplification falls to 1 at $0.71$ [95\% CI
+$0.62$, $0.82$] times the hardware error rates for ADAPT and at $0.89$ [$0.69$, $>1$] for XY, so
+the deeper ADAPT circuit loses its noiseless lead first. \pending{scaling of the crossover with $N$
+($N=10, 12$)}.
 Code, configurations, run records and the full decision log are openly available.
 \end{abstract}
 
@@ -85,7 +89,9 @@ started from a Dicke state~\citep{bartschi2019dicke}, and the adaptive ADAPT-QAO
         mixer, beat random feasible guessing in noiseless simulation, while classical heuristics
         remain orders of magnitude cheaper at these sizes.
   \item A null result for RMT denoising on this universe, with a mechanism.
-  \item \pending{the measured noise crossover per mixer and its dependence on $N$}.
+  \item A measured noise crossover per mixer with bootstrap confidence intervals: at $N=8$ both
+        constraint-preserving mixers lose their advantage below current hardware error rates, and
+        the deeper ADAPT circuit crosses first. \pending{dependence on $N$}.
 \end{itemize}
 
 \section{Problem formulation}\label{sec:problem}
@@ -222,7 +228,14 @@ instances), the XY and ADAPT mixers beat random feasible guessing at every size 
 at none (Table~\ref{tab:amp}). Paired over instances, ADAPT exceeds XY by a geometric-mean factor
 of 1.6--2.3 and XY exceeds X by 2.9--3.5 (Table~\ref{tab:mixers}). The X mixer's weakness tracks
 the penalty: smaller penalty scales were consistently better in tuning, and a shot-noise-robust
-optimizer (SPSA) did not help it.
+optimizer (SPSA) did not help it. Figure~\ref{fig:noiseless} shows that none of these patterns
+changes with $N$ over the simulated range.
+\begin{figure}[ht]\centering
+\includegraphics[width=0.6\linewidth]{generated/fig_noiseless.pdf}
+\caption{Noiseless amplification $\Amp$ (median and interquartile range over 30 instances, log
+scale) versus problem size, sample covariance. The dashed line is random feasible guessing.}
+\label{fig:noiseless}
+\end{figure}
 \begin{table}[ht]\centering\small
 \caption{Paired mixer comparisons: geometric-mean ratio of $\Amp$ (share of instances where the
 first mixer is better).}
@@ -257,7 +270,15 @@ simulated-annealing budget that is optimal on $\geq90\%$ of instances.}
 \subsection{RMT denoising}
 On the universe, 25 of 30 correlation eigenvalues lie \emph{below} the Marchenko--Pastur band, which
 noise cannot produce at $q=0.02$; clipping replaces 27 of 30 eigenvalues and effectively imposes a
-three-factor model. When it changes the classical optimum (26--44\% of instances), the selected
+three-factor model (Figure~\ref{fig:spectrum}).
+\begin{figure}[ht]\centering
+\includegraphics[width=0.6\linewidth]{generated/fig_spectrum.pdf}
+\caption{Eigenvalues of the 2015--2020 correlation matrix of the 30-asset universe (log scale).
+The grey band is the Marchenko--Pastur bulk for $q=N/T$; only the three eigenvalues above it are
+kept by clipping.}
+\label{fig:spectrum}
+\end{figure}
+When it changes the classical optimum (26--44\% of instances), the selected
 portfolio has higher realized out-of-sample variance more often than not
 (Table~\ref{tab:denoise}), and its correlation estimate is further from the out-of-sample
 correlation than the sample estimate. In a synthetic one-factor model, clipping beat the sample
@@ -278,15 +299,59 @@ improved).}
 \end{table}
 
 \subsection{Noise}
-\pending{amplification versus noise level per mixer and $N$ (figure); crossover estimates with
-bootstrap confidence intervals; effect on feasibility leakage and out-of-sample risk; comparison of
-the $N=8$ results under full-device and compact routing as a robustness check}.
+The noise analysis, including its predictions, was pre-registered before any noisy result of
+record was viewed. Results for $N=8$ are complete; \pending{$N=10$ and $N=12$ are being computed
+and will be added under the same analysis}. The crossover $m^\ast$ is the first noise level at
+which the median $\Amp$ falls to 1, interpolating $\ln\Amp$ linearly in $\ln m$ (linearly in $m$
+from $m=0$), with 95\% percentile-bootstrap intervals from 2{,}000 resamples of the instances;
+the same resamples are used for every mixer, so mixer comparisons are paired.
+
+Figure~\ref{fig:noise} and Table~\ref{tab:crossover} show the result. Both constraint-preserving
+mixers beat random feasible guessing at $m\le0.5$ and neither does at $m=1$, today's error rates
+(median $\Amp$ 0.60 for ADAPT and 0.91 for XY, with $\Amp>1$ on only 13\% and 40\% of instances).
+Contrary to our pre-registered prediction, ADAPT's crossover is \emph{lower} than XY's
+(bootstrap $P(m^\ast_{\mathrm{ADAPT}}>m^\ast_{\mathrm{XY}})=0.013$): ADAPT starts higher, but its
+four layers decay faster, retaining a paired fraction $\Amp(1)/\Amp(0)$ of only 0.14, against 0.35
+for the single-layer XY circuit. Noise also breaks the constraint that these mixers preserve
+exactly without noise: the median probability of a feasible outcome falls from 1 to 0.36 (ADAPT)
+and 0.49 (XY) at $m=1$ (Figure~\ref{fig:noise}, right). The X mixer stays below random guessing at
+every noise level and decays only slightly, since infeasible outcomes already dominate it. RMT
+denoising has no consistent effect on the constraint-preserving mixers at any noise level (paired
+ratios 0.92--1.10), and their modal selections' out-of-sample variance stays within 3--10\% of the
+optimum's.
+\begin{figure}[ht]\centering
+\includegraphics[width=0.48\linewidth]{generated/fig_noise.pdf}\hfill
+\includegraphics[width=0.48\linewidth]{generated/fig_leakage.pdf}
+\caption{Left: amplification $\Amp$ versus noise scale $m$ (median and 95\% bootstrap interval, log
+scale; $m=1$ corresponds to FakeKingston median error rates). Right: median probability of a
+feasible outcome. $N=8$, sample covariance, 30 instances.}
+\label{fig:noise}
+\end{figure}
+\begin{table}[ht]\centering\small
+\caption{Noise crossover $m^\ast$ [95\% bootstrap interval] and median $\Amp$ at today's error rates
+($m=1$), sample covariance. $m^\ast=0$ means no advantage even without noise.}
+\label{tab:crossover}
+\input{generated/noise_crossover.tex}
+\end{table}
+
+\paragraph{Robustness to circuit placement.} Before a memory failure forced a change of routing,
+all $N=8$ noisy runs had been completed with circuits routed over the full device. Comparing
+them with the runs of record, transpiled onto a compact $N$-qubit region, gives paired $\Amp$
+ratios of 0.98--1.14 and the same mixer ordering. Under our pre-registered criterion the
+crossovers are nevertheless not fully robust: for ADAPT with denoising, the full-device crossover
+(0.77) lies just outside the interval of record [0.52, 0.76]. Crossover values therefore depend on
+circuit placement by up to about 0.1 in $m$; the qualitative conclusions do not.
 
 \section{Discussion and limitations}
 At the sizes that can be simulated exactly, the quantum part of the pipeline shows a genuine but
 modest effect, and only with mixers that respect the constraint. It does not compete with classical
 heuristics on cost, and its first stage (RMT denoising) does not help on this universe.
-\pending{interpretation of the noise crossover relative to current hardware}.
+Under noise, the advantage that exists disappears before current hardware error rates are
+reached: at $N=8$, error rates would have to fall by roughly 10--30\% (XY) or 20--40\% (ADAPT)
+below Heron-class medians just for the output to beat random feasible guessing, and the extra
+depth that gives ADAPT its noiseless lead is what costs it under noise. This depth--accuracy
+trade-off suggests choosing mixer and depth jointly with the expected error rate rather than
+optimizing noiselessly. \pending{whether the crossover falls with $N$ as circuit depth grows}.
 
 Limitations: equal weights rather than continuous weights; a single 30-stock universe with
 survivorship bias and a single out-of-sample period; $N\le14$, where exact search is trivial, so
@@ -298,9 +363,9 @@ $N=10$; and descriptive rather than confirmatory $p$-values.
 \pending{one-paragraph conclusion once the noise crossover is measured}.
 
 \section*{Data and code availability}
-All code, configurations, the decision log (27 numbered decision records, including pre-registrations and
-their results), and the scripts that generate every table are available at
-\url{https://github.com/yuvi1469/nisq-folio}. Raw market data are not redistributed; the code
+Repository: \url{https://github.com/yuvi1469/nisq-folio}. It contains all code, configurations,
+the decision log (28 numbered decision records, including pre-registrations and their results),
+and the scripts that generate every table and figure. Raw market data are not redistributed; the code
 downloads them from Yahoo Finance and verifies the snapshot by checksum.
 
 \section*{Author contributions}

@@ -20,6 +20,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from nisq_folio.analysis.noise import analyze
 from nisq_folio.analysis.summary import (
     budget_table,
     classical_table,
@@ -185,6 +186,41 @@ def deployment(qaoa: pd.DataFrame, classical_df: pd.DataFrame) -> str:
     )
 
 
+def _m(value: float) -> str:
+    return "$>1$" if np.isinf(value) else f"{value:.2f}"
+
+
+def noise_crossover(n1: pd.DataFrame, n2: pd.DataFrame) -> str:
+    """ADR-028: crossover m* [95% CI] and median A at m = 1, per mixer and complete N."""
+    n1, n2 = n1[n1["denoising"] == "none"], n2[n2["denoising"] == "none"]
+    sizes = sorted(n2["n"].unique())
+    rows = []
+    for mixer in ("adapt", "xy_ring", "x"):
+        cells = []
+        for n in sizes:
+            c = n2[(n2["mixer"] == mixer) & (n2["n"] == n)]
+            a = n1[(n1["mixer"] == mixer) & (n1["n"] == n) & (n1["noise_level"] == 1.0)]
+            if c.empty:
+                cells += ["--", "--"]
+                continue
+            r = c.iloc[0]
+            cells.append(f"{_m(r['crossover'])} [{_m(r['ci_low'])}, {_m(r['ci_high'])}]")
+            cells.append(fmt(a["A_median"].iloc[0]) if not a.empty else "--")
+        rows.append(f"{MIXER_NAMES[mixer]} & " + " & ".join(cells) + r" \\")
+    head = " & ".join(f"$m^*$ ($N={n}$) & $\\Amp(m{{=}}1)$" for n in sizes)
+    return (
+        "\\begin{tabular}{l"
+        + "cc" * len(sizes)
+        + "}\n\\toprule\n"
+        + "Mixer & "
+        + head
+        + r" \\"
+        + "\n\\midrule\n"
+        + "\n".join(rows)
+        + "\n\\bottomrule\n\\end{tabular}\n"
+    )
+
+
 def denoise_evaluation(record: dict) -> str:
     """ADR-022: rmt_clip vs sample covariance on the classical optimum, out of sample."""
     rows = []
@@ -249,6 +285,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "budget": budget(qaoa, classical_df),
         "deployment": deployment(qaoa, classical_df),
     }
+    noisy = analyze(qaoa, classical_df, config.seed)
+    if not noisy["N2"].empty:
+        tables["noise_crossover"] = noise_crossover(noisy["N1"], noisy["N2"])
     for name, body in tables.items():
         (OUT / f"{name}.tex").write_text(
             header(source, commits) + body, encoding="utf-8", newline="\n"
