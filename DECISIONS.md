@@ -1201,3 +1201,15 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
 - **Main article:** venue unchanged (Quantum Information Processing, no-fee route, plus an arXiv
   preprint). JOSS forbids the software paper from focusing on research results, so the two do not
   overlap.
+
+### ADR-027 addendum (2026-10-22): how the noisy grid is launched
+
+- The run died three times on 2026-10-22, each time without a Python error:
+  1. Started with `Start-Process` from the chat app: it died with the app's process tree.
+  2. Started via WMI with a console: it received a console Ctrl+C.
+  3. Started via WMI without breakaway: it and keep-awake were ended together within seconds.
+     WMI-created processes run inside a WMI job object; the likely cause is that job's quotas.
+- About 1 h of compute was lost. No results were affected: a task's file is written only when it
+  finishes, and the interrupted task was re-run from scratch with the same seeds.
+- **Launch method of record:** `tools/launch_detached.py`, itself started via WMI. It starts the
+  run with no console, in its own process group, and outside any job object.
