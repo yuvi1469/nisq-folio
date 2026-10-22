@@ -1136,3 +1136,46 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
     N are added only when complete.
   - Nothing in this analysis changes after any result has been seen. Any later change is a new
     ADR labelled **post hoc** and reported alongside, never instead.
+
+### ADR-028 interim results (2026-10-22): N = 8, every mixer and level
+
+- **Source:** `main_r2`, all 720 N = 8 noisy-grid QAOA tasks (6 complete cells). They come from
+  clean commits `31c7e80` and `bb8eca2`; the second is the run restarted after an app restart and
+  changes no code or config under `src/` or `configs/`. Analysis code: commit `c7cb5a3`. Saved
+  report: `docs/results/noisy_n8_interim.md`.
+- **Median A by noise level** (denoising = none; share with A > 1 in brackets):
+
+  | Mixer | m = 0 | 0.25 | 0.5 | 1 | m\* [95% CI] |
+  |---|---|---|---|---|---|
+  | ADAPT | 4.01 (93%) | 2.17 (97%) | 1.65 (77%) | 0.60 (13%) | 0.71 [0.62, 0.82] |
+  | XY ring | 2.88 (93%) | 2.10 (87%) | 1.57 (87%) | 0.91 (40%) | 0.89 [0.69, > 1] |
+  | X | 0.73 (20%) | 0.75 (7%) | 0.68 (13%) | 0.64 (7%) | 0 |
+
+  rmt_clip gives the same picture: ADAPT 0.67 [0.52, 0.76], XY 0.88 [0.70, > 1].
+- **Predictions:**
+  1. **Held.** At m = 1 no mixer beats random (verdict "not supported" for all six cells).
+     ADAPT and XY do beat random at m ≤ 0.5.
+  2. **Failed, half of it.** m\*_X = 0 as expected, but **m\*_ADAPT < m\*_XY**:
+     P(m\*_ADAPT > m\*_XY) = 0.013 (none) and 0.016 (rmt_clip), so by the rule the ADAPT
+     crossover is *lower*. ADAPT starts higher (4.0 vs 2.9) but decays faster. Its paired
+     A(1)/A(0) ratio is 0.14 against 0.35 for XY. At m = 1 the ADAPT/XY ratio is 0.73 (better on
+     13% of instances), against 1.61 at m = 0. The likely mechanism, untested here, is depth:
+     ADAPT uses p = 4 against p = 1 for XY (ADR-021).
+  3. Not testable yet; it needs N = 10.
+  4. **Held.** Median p_feasible falls from 1 to 0.36 (ADAPT) and 0.49 (XY) at m = 1. X stays
+     near 0.24–0.27 throughout.
+  5. **Held for ADAPT and XY** (ratios 0.92–1.10, all p > 0.09). X remains slightly worse with
+     rmt_clip at every m (0.89–0.91, p ≤ 0.001), the same as at m = 0 (ADR-026).
+- **Deployment (N7):** X's modal selection stays optimal on 77–80% of instances at every m. ADAPT's
+  and XY's modal selections stay within 3–10% (median) of the optimum's out-of-sample variance.
+- **Routing robustness (N8): not fully robust under the pre-registered criterion.**
+  - The ADAPT/XY ordering agrees in both runs (ADAPT lower).
+  - Five of six superseded crossovers lie inside the record's CI. The exception is ADAPT with
+    rmt_clip: superseded 0.77 against record 0.67 [0.52, 0.76].
+  - Paired A ratios superseded/record are 0.98–1.14, mostly with p > 0.2. The largest is ADAPT,
+    none, m = 1: 1.14, p = 0.009.
+  - So full-device routing gave ADAPT slightly *higher* A under noise. The likely reason, not
+    verified, is that it can use a better-connected set of physical qubits than the fixed compact
+    region, so it needs fewer SWAPs.
+  - The paper reports this as: crossover values depend on circuit placement by up to about 0.1
+    in m; the qualitative conclusions do not.
