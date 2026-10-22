@@ -23,6 +23,7 @@ STREAM_QAOA_SHOTS = 4
 STREAM_MIXER_STUDY = 5
 STREAM_EXPERIMENT = 6
 STREAM_PILOT = 7
+STREAM_ANALYSIS = 8  # bootstrap resampling in the noisy analysis (ADR-028)
 
 
 def child_rng(root_seed: int, *keys: int) -> np.random.Generator:

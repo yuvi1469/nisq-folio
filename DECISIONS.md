@@ -1078,3 +1078,61 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
 - **Stalls:** about 55 h of wall time were lost to Modern Standby during the first session (charger
   unplugged, lid closed). A keep-awake helper (SetThreadExecutionState, no settings changed) now
   runs alongside, but it cannot override lid close or battery policy.
+
+## ADR-028: Noisy-grid analysis (pre-registered before any noisy result of record was viewed)
+
+- **Status:** Accepted (2026-10-22). The code (`analysis/noise.py`, `analysis/noise_report.py`)
+  and its tests were written against synthetic data only and committed **before** any `main_r2`
+  noisy result was opened. At that point the N = 8 block (all mixers, all levels) was finished
+  and N = 10 was running; nobody had looked at either.
+- **Data:** the experiment of record `configs/main.yaml` (`main_r2`, ADR-027). Only *complete*
+  cells are analysed: a (denoising, mixer, N) cell enters only when all 30 instances exist at
+  every noise level {0, 0.25, 0.5, 1}. A partial N is never reported.
+- **Crossover m\*** (ADR-019 defines A; the crossover is where the median A falls to 1):
+  - M(m) = median of A over the cell's instances at level m.
+  - If M(0) ≤ 1, m\* = 0 ("no advantage even without noise"). If M > 1 at every level,
+    m\* = +∞, reported as "> 1" (censored).
+  - Otherwise, take the first level m_j with M(m_j) ≤ 1 and interpolate ln M linearly between
+    m_{j−1} and m_j: linearly in m when m_{j−1} = 0, linearly in ln m otherwise (the pilot's
+    rule, ADR-025). The first crossing defines m\* even if M later rises again.
+  - Because noiseless X has M(0) < 1 at every N (ADR-026), its m\* is 0 by this definition. X is
+    still reported in the curves (N1) and decay table (N4).
+- **Uncertainty:** percentile bootstrap over instances, B = 2,000, with order-statistic bounds
+  (a bound can be 0 or ∞).
+  - One resample of instance indices per (N, replicate), drawn from the new stream
+    `STREAM_ANALYSIS = 8` (key N) under the root seed. It is reused for every mixer, denoising
+    level and noise level at that N, so within-N comparisons are paired.
+  - Different N have different instances, so their replicates are independent.
+- **Tables** (`python -m nisq_folio.analysis.noise_report --config configs/main.yaml`):
+  - **N1:** per (denoising, mixer, N, m): median A with 95% CI, share A > 1, median p_feasible
+    (feasibility leakage out of the K-subspace), median E[gap].
+  - **Verdicts:** the ADR-026 rule ("beats random" iff median A > 1 and A > 1 on ≥ 2/3 of
+    instances) at every m.
+  - **N2:** m\* with 95% CI and the shares of replicates with no advantage or censored.
+  - **N3:** bootstrap P(m\*_a > m\*_b) for ADAPT vs XY, XY vs X, ADAPT vs X at each N, and for
+    N vs the next N within a mixer. Ties, including ∞ = ∞, count one half.
+  - **N4:** paired geometric-mean ratio A(m)/A(0) with Wilcoxon p, per cell and m > 0.
+  - **N5, N6, N7:** the ADR-026 T2 (mixers), T3 (denoising) and T6 (deployment) at each m.
+  - **N8, routing robustness:** the superseded full-device N = 8 results (`main`, ADR-027) against
+    `main_r2`, as a paired A ratio per (denoising, mixer, m > 0), plus whether each superseded m\*
+    lies inside the record's 95% CI.
+- **Decision rules, fixed now:**
+  - "Crossover of a is higher than b" is stated only if P(m\*_a > m\*_b) ≥ 0.95; "lower" only if
+    ≤ 0.05; otherwise "not distinguishable at this sample size".
+  - "At today's hardware noise" means m = 1 (FakeKingston medians, ADR-023) and uses the
+    verdict rule there.
+  - **Routing-robust** means every superseded N = 8 m\* lies inside the record's CI and the
+    ADAPT/XY ordering of point estimates agrees. Otherwise the paper says so and reports both.
+  - p-values stay descriptive (ADR-026). There is no multiplicity correction.
+- **Predictions, from the pilot (ADR-025), recorded so they can fail:**
+  1. At N = 8 and m = 1, no mixer "beats random".
+  2. m\*_ADAPT > m\*_XY (pilot: about 0.76 against about 0.25) and m\*_X = 0.
+  3. m\* decreases with N for ADAPT and XY, because circuit depth and CZ count grow with N.
+  4. p_feasible for XY and ADAPT falls below 1 as m grows, since noise leaks out of the
+     K-subspace that the mixer preserves without noise.
+  5. Denoising has no consistent effect at any m (as at m = 0, ADR-026).
+- **Interim reporting:**
+  - The N = 8 analysis may be run and reported once N = 8 is complete, labelled interim. Larger
+    N are added only when complete.
+  - Nothing in this analysis changes after any result has been seen. Any later change is a new
+    ADR labelled **post hoc** and reported alongside, never instead.
