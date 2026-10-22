@@ -1179,3 +1179,25 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
     region, so it needs fewer SWAPs.
   - The paper reports this as: crossover values depend on circuit placement by up to about 0.1
     in m; the qualitative conclusions do not.
+
+## ADR-029: Results dashboard and the software-paper (JOSS) plan
+
+- **Status:** Accepted (2026-10-22).
+- **Dashboard** (`dashboard/app.py`, data in `analysis/dashboard_data.py`):
+  - Read-only. It only reads result files, so it is safe to open while the grid runs.
+  - It reuses the ADR-026/028 code, so it cannot drift from the reports.
+  - It uses 500 bootstrap replicates instead of 2,000 for responsiveness, so its intervals can
+    differ slightly from the reports of record. The reports and the paper always use 2,000.
+- **Software paper:** a second, separate publication in the Journal of Open Source Software,
+  which charges no fees (ADR-008). The draft is in `joss/paper.md` and `joss/paper.bib`.
+  - JOSS requires **more than six months of public, iteratively developed history** and checks
+    commit distribution automatically. The repository became public on 2026-10-13, so the
+    **earliest eligible submission is mid-April 2027**. Submitting earlier would be a desk
+    rejection.
+  - JOSS also wants evidence of research use (the main article or its arXiv preprint), tagged
+    releases, a CONTRIBUTING file (added), and issues or pull requests in public.
+  - JOSS requires every author to be a major contributor to the *software*. The user must confirm
+    that this holds for both authors before submitting.
+- **Main article:** venue unchanged (Quantum Information Processing, no-fee route, plus an arXiv
+  preprint). JOSS forbids the software paper from focusing on research results, so the two do not
+  overlap.
