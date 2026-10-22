@@ -1,7 +1,8 @@
 """Start a long-running command fully detached on Windows (not part of the research code).
 
-The child gets no console (``DETACHED_PROCESS``) and its own process group, so console Ctrl+C /
-Ctrl+Break events and the closing of the terminal or app that started it cannot stop it. Its
+The child gets no console (``DETACHED_PROCESS``), its own process group, and leaves the
+launcher's job object when allowed, so console Ctrl+C / Ctrl+Break events, job limits, and the
+closing of the terminal or app that started it cannot stop it. Its
 stdout and stderr are appended to the given log files. The launcher prints the child's PID and
 exits immediately.
 
@@ -27,6 +28,7 @@ from pathlib import Path
 DETACHED_PROCESS = 0x00000008
 CREATE_NEW_PROCESS_GROUP = 0x00000200
 CREATE_NO_WINDOW = 0x08000000
+CREATE_BREAKAWAY_FROM_JOB = 0x01000000
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -42,16 +44,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     if sys.platform != "win32":
         print("launch_detached: only supported on Windows", flush=True)
         return 1
+    flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
     with args.stdout.open("ab") as out, args.stderr.open("ab") as err:
-        child = subprocess.Popen(
-            command,
-            stdin=subprocess.DEVNULL,
-            stdout=out,
-            stderr=err,
-            creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW,
-            close_fds=True,
-        )
-    print(f"started PID {child.pid}: {' '.join(command)}", flush=True)
+        try:
+            # Leave any job object the launcher is in (e.g. WMI's, which has memory quotas and
+            # ends every process in the job when one exceeds them).
+            child = subprocess.Popen(
+                command, stdin=subprocess.DEVNULL, stdout=out, stderr=err,
+                creationflags=flags | CREATE_BREAKAWAY_FROM_JOB, close_fds=True,
+            )  # fmt: skip
+            breakaway = True
+        except PermissionError:  # the job does not allow breakaway
+            child = subprocess.Popen(
+                command, stdin=subprocess.DEVNULL, stdout=out, stderr=err,
+                creationflags=flags, close_fds=True,
+            )  # fmt: skip
+            breakaway = False
+    print(f"started PID {child.pid} (job breakaway: {breakaway}): {' '.join(command)}", flush=True)
     return 0
 
 
