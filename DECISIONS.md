@@ -1213,3 +1213,15 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
   finishes, and the interrupted task was re-run from scratch with the same seeds.
 - **Launch method of record:** `tools/launch_detached.py`, itself started via WMI. It starts the
   run with no console, in its own process group, and outside any job object.
+- **Update (2026-10-23), superseding the launch method above:**
+  - Detached launches kept dying silently, mostly around standby or battery power. Only one task
+    finished overnight.
+  - With the user's approval, the grid now runs as the Windows scheduled task
+    **"NISQ-Folio main_r2"**:
+    - It runs `.venv\Scripts\pythonw.exe tools\run_scheduled.py --config configs/main.yaml
+      --log-dir results\experiments\main_r2`. There is no console window, and keep-awake runs
+      in-process.
+    - Triggers: at logon, and every 15 min indefinitely. A trigger is ignored while an instance is
+      running, so a dead run restarts within 15 min.
+    - Restart on failure every minute. No time limit. It is not stopped on battery.
+  - **The task is to be deleted when the grid finishes.**
