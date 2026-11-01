@@ -60,3 +60,23 @@ results of record, and archives them on Zenodo for a citable DOI (ADR-030). Ever
       main_r2/runs/`, `main_r2/manifest.json` (paths stripped) and the superseded `main/runs/`,
       upload as a separate free Zenodo *dataset* linked to the software DOI, and cite it in the
       paper.
+
+## 7. arXiv preprint
+
+- [ ] Build with `tectonic -X compile --keep-intermediates paper/main.tex`, then
+      `uv run python tools/arxiv_bundle.py`. It refuses while any pending or todo marker remains or
+      `main.bbl` is stale, and writes `paper/arxiv.zip` (main.tex, main.bbl, and exactly the tables
+      and figures the paper reads). arXiv compiles with pdfLaTeX; the preamble and the
+      bibliography are plain ASCII/pdfLaTeX-compatible, but we build with Tectonic (XeTeX), so
+      **check arXiv's compiled preview PDF page by page** before submitting.
+- [ ] Category: `quant-ph` primary, `q-fin.PM` (portfolio management) cross-list.
+- [ ] Accounts and endorsement (user): both authors need free arXiv accounts. A first submission
+      to a category usually needs an **endorsement** from someone who has published there; arXiv
+      may waive it based on the submitter's history or affiliation, which you only learn when you
+      start the submission. If asked, request it through arXiv's endorsement page from a
+      colleague who has posted to `quant-ph`. Allow a few days.
+- [ ] Licence: choose one at submission (CC BY 4.0 is the most open). Confirm the target journal's
+      preprint policy allows it before choosing.
+- [ ] Abstract: the arXiv form takes plain text (at most 1,920 characters); remove LaTeX markup.
+- [ ] After posting: add the arXiv identifier to `README.md`, `CITATION.cff` (as
+      `preferred-citation`) and the JOSS draft.
