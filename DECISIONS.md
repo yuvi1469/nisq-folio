@@ -1180,6 +1180,43 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
   - The paper reports this as: crossover values depend on circuit placement by up to about 0.1
     in m; the qualitative conclusions do not.
 
+### ADR-028 interim results (2026-10-29): N = 8 and N = 10, every mixer and level
+
+- **Source:** `main_r2`, all 1,440 N = 8 and N = 10 noisy-grid QAOA tasks (12 complete cells).
+  The N = 10 tasks come from clean commits `31c7e80`, `bb8eca2`, `c5de359` and `2baf27b`. Between
+  them only analysis code, the new `STREAM_ANALYSIS` constant, `tools/` and documentation changed;
+  the experiment code and configs did not. Analysis code: commit `c7cb5a3`, run at `e3f441d`.
+  Saved report: `docs/results/noisy_n10_interim.md`. N = 8 numbers are unchanged from the
+  2026-10-22 interim (same bootstrap stream).
+- **N = 10, median A by noise level** (denoising = none; share with A > 1 in brackets):
+
+  | Mixer | m = 0 | 0.25 | 0.5 | 1 | m\* [95% CI] |
+  |---|---|---|---|---|---|
+  | ADAPT | 4.91 (100%) | 2.08 (83%) | 0.88 (37%) | 0.38 (0%) | 0.45 [0.38, 0.51] |
+  | XY ring | 3.08 (90%) | 2.22 (77%) | 1.41 (73%) | 0.66 (23%) | 0.69 [0.53, 0.81] |
+  | X | 0.81 (17%) | 0.77 (13%) | 0.79 (10%) | 0.71 (0%) | 0 |
+
+  rmt_clip: ADAPT 0.47 [0.41, 0.50], XY 0.67 [0.36, 0.81].
+- **Predictions:**
+  1. **Held at N = 10 as well.** At m = 1 no mixer beats random. ADAPT no longer beats random
+     at m = 0.5 (median 0.88 none, 0.94 rmt_clip). XY does without denoising (1.41, 73%); with
+     rmt_clip its median is 1.41 but only 63% of instances exceed 1, so the verdict is "not
+     supported".
+  2. **Failed again** for the ADAPT/XY part: P(m\*_ADAPT > m\*_XY) = 0.003 (none, *lower*) and
+     0.057 (rmt_clip, not distinguishable). The paired ADAPT/XY A ratio goes 1.61 → 0.90 → 0.69
+     → 0.60 over m = 0 → 1 (p = 0.58, 6×10⁻⁵, 4×10⁻⁶ for m > 0). m\*_X = 0, as predicted.
+  3. **Supported for ADAPT; for XY only with rmt_clip** (final test needs N = 12).
+     P(m\*_{N=8} > m\*_{N=10}) is 1.000 (none) and 0.991 (rmt_clip) for ADAPT, and 0.913 (none,
+     not distinguishable) and 0.963 (rmt_clip) for XY. Paired decay A(1)/A(0) at N = 10 is 0.07
+     (ADAPT) and 0.22 (XY), against 0.14 and 0.35 at N = 8.
+  4. **Held.** At m = 1, N = 10, median p_feasible is 0.28 (ADAPT) and 0.36 (XY). ADAPT's
+     leakage reaches the level of X (0.27), which never preserves the cardinality.
+  5. **Held for ADAPT and XY** (N = 10 ratios 0.88–1.04, all p > 0.15). X with rmt_clip is
+     slightly worse at m = 0.25 and 0.5 (0.91, 0.87; p = 0.03, 0.003) but not at m = 0 or 1.
+- **Deployment (N7), N = 10:** X's modal selection is optimal on 60–77% of instances. ADAPT's
+  and XY's modal selections stay within 3–10% (median) of the optimum's out-of-sample variance.
+- **Routing (N8)** covers N = 8 only and is unchanged.
+
 ## ADR-029: Results dashboard and the software-paper (JOSS) plan
 
 - **Status:** Accepted (2026-10-22).
