@@ -60,10 +60,13 @@ def _log_ticks(ax: plt.Axes) -> None:
     ax.yaxis.set_minor_formatter(mpl.ticker.NullFormatter())
 
 
-def _reference_line(ax: plt.Axes) -> None:
+def _reference_line(ax: plt.Axes, below: bool = False, label: bool = True) -> None:
     ax.axhline(1.0, color=MUTED, lw=0.8, ls="--", zorder=1)
-    ax.annotate("random feasible guess (A = 1)", (0.99, 1.0), xycoords=("axes fraction", "data"),
-                ha="right", va="bottom", fontsize=6.5, color=MUTED)  # fmt: skip
+    if label:
+        text = "random guess" if below else "random feasible guess (A = 1)"
+        ax.annotate(text, (0.03 if below else 0.99, 1.0),
+                    xycoords=("axes fraction", "data"), ha="left" if below else "right",
+                    va="top" if below else "bottom", fontsize=6.5, color=MUTED)  # fmt: skip
 
 
 def noiseless(qaoa: pd.DataFrame) -> plt.Figure:
@@ -105,13 +108,13 @@ def _panels(curve: pd.DataFrame, column: str, ylabel: str, log: bool) -> plt.Fig
             ax.plot(c["noise_level"], c[column], color=colour, marker=marker, ms=4.5, lw=1.5,
                     mec="white", mew=0.6, label=label)  # fmt: skip
         if column == "A_median":
-            _reference_line(ax)
+            _reference_line(ax, below=True, label=ax is axes[0][0])
         ax.set_title(f"$N = {n}$", color=INK)
-        ax.set_xlabel("Noise scale $m$ (1 = FakeKingston medians)")
         ax.set_xticks([0, 0.25, 0.5, 1.0])
         if log:
             _log_ticks(ax)
     axes[0][0].set_ylabel(ylabel)
+    fig.supxlabel("Noise scale $m$ (1 = FakeKingston medians)", y=-0.06, fontsize=8)
     axes[0][-1].legend(loc="upper right", fontsize=7, handlelength=1.6)
     return fig
 

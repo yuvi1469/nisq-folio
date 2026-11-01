@@ -83,10 +83,15 @@ def crossover(levels: Sequence[float], medians: Sequence[float]) -> float:
 
 
 def complete_cells(qaoa: pd.DataFrame) -> pd.DataFrame:
-    """Keep only cells with every instance present at every noise level of that N."""
+    """Keep only cells with every instance of their N present at every noise level of the grid.
+
+    The levels are those found anywhere in the table, not only at the cell's N: an N whose higher
+    levels have not started yet is incomplete, even if its lower levels are full (ADR-028).
+    """
     keep = []
+    levels = set(qaoa["noise_level"])
     for _, g in qaoa.groupby("n"):
-        instances, levels = set(g["instance"]), set(g["noise_level"])
+        instances = set(g["instance"])
         for _, cell in g.groupby(["denoising", "mixer"]):
             if len(levels) > 1 and len(cell) == len(instances) * len(levels):
                 keep.append(cell)

@@ -1216,6 +1216,12 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
 - **Deployment (N7), N = 10:** X's modal selection is optimal on 60–77% of instances. ADAPT's
   and XY's modal selections stay within 3–10% (median) of the optimum's out-of-sample variance.
 - **Routing (N8)** covers N = 8 only and is unchanged.
+- **Fix (2026-11-01), not a change of analysis:** `complete_cells` judged a cell against the noise
+  levels present *at its N*. Mid-run, N = 12 X had full m = 0 and 0.25 and nothing above, so it
+  counted as complete, against this ADR's definition (every level {0, 0.25, 0.5, 1}). Found on
+  a dry run of `paper/make_tables.py`. Levels now come from the whole grid; regression test added.
+  No reported number changes: the 2026-10-22 and 2026-10-29 reports had no N = 12 cell that met
+  the old test.
 
 ## ADR-029: Results dashboard and the software-paper (JOSS) plan
 

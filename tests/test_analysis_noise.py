@@ -129,6 +129,15 @@ def test_incomplete_cells_are_dropped() -> None:
     assert all(t.empty for t in analyze(noiseless_only, classical, 1, 10).values())
 
 
+def test_an_n_whose_higher_levels_have_not_started_is_incomplete() -> None:
+    # The live grid runs level by level: at N = 12, m = 0 and 0.25 can be full while 0.5 and 1
+    # have no rows at all. That N must not count as complete.
+    qaoa, classical = synthetic({"xy_ring": 2.0, "x": 8.0}, sizes=(8, 12))
+    running = qaoa[(qaoa["n"] == 8) | (qaoa["noise_level"] <= 0.25)]
+    assert set(complete_cells(running)["n"]) == {8}
+    assert set(analyze(running, classical, 1, 10)["N2"]["n"]) == {8}
+
+
 def test_verdicts_follow_the_two_thirds_rule() -> None:
     curve = pd.DataFrame({
         "denoising": ["none"] * 3, "mixer": ["x"] * 3, "n": [8] * 3, "noise_level": [0, 0.5, 1],
