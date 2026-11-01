@@ -136,7 +136,7 @@ results from a different config.
 alone gives the same result. Numerical libraries and thread scheduling can still introduce
 last-digit differences across machines and operating systems.
 
-**Decisions.** [DECISIONS.md](DECISIONS.md) lists every design choice (ADR-001 to ADR-029),
+**Decisions.** [DECISIONS.md](DECISIONS.md) lists every design choice (ADR-001 to ADR-030),
 including the pre-registrations and their results, failures, and post-hoc changes.
 
 ## Citation

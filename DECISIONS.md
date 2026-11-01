@@ -1268,3 +1268,20 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
       running, so a dead run restarts within 15 min.
     - Restart on failure every minute. No time limit. It is not stopped on battery.
   - **The task is to be deleted when the grid finishes.**
+
+## ADR-030: Release and archiving (v1.0.0, Zenodo)
+
+- **Status:** Accepted (2026-11-01).
+- **Decision:** The results of record are frozen as release **v1.0.0**, tagged once the noisy grid
+  and the Week 13 analysis are complete. It is archived through Zenodo's GitHub integration, which
+  is free (ADR-008) and mints a DOI per version plus a concept DOI for all versions. The steps are
+  in `docs/RELEASE.md`.
+- **Metadata:** `CITATION.cff` is the single source for authors, title, licence and keywords. It
+  now lists both authors. There is no `.zenodo.json`; Zenodo falls back to `CITATION.cff`, so the
+  two cannot disagree.
+- **Versioning:** `0.1.0` until the release. `1.0.0` marks the results of record; later fixes that
+  change no reported number are `1.0.x`.
+- **Open point for the authors:** `results/` is not in git (it is regenerable but costs about two
+  weeks of compute). The run records hold no price data and no local paths, so publishing them as a
+  separate Zenodo dataset linked to the software DOI is recommended. The authors decide before the
+  release.
