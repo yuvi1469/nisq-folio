@@ -51,9 +51,10 @@ optimum out of sample nor QAOA. Under a depolarizing-plus-readout noise model ca
 Heron-class median error rates, the advantage of both constraint-preserving mixers vanishes
 below today's error rates: the median amplification falls to 1 at $0.71$ [95\% CI $0.62$,
 $0.82$] times the hardware error rates for ADAPT at $N=8$ and at $0.45$ [$0.38$, $0.51$] at
-$N=10$, and at $0.89$ [$0.69$, $>1$] and $0.69$ [$0.53$, $0.81$] for XY. The deeper ADAPT circuit
-loses its noiseless lead first, and the tolerable noise shrinks as the problem grows.
-\pending{$N=12$ (XY and X)}.
+$N=10$, and at $0.89$ [$0.69$, $>1$], $0.69$ [$0.53$, $0.81$] and $0.46$ [$0.25$, $0.57$] for XY
+at $N=8$, 10 and 12. The deeper ADAPT circuit loses its noiseless lead first, and the tolerable
+noise shrinks as the problem grows; at $N=12$ and today's error rates the XY mixer does worse
+than the penalized standard mixer, and neither beats random guessing.
 Code, configurations, run records and the full decision log are openly available.
 \end{abstract}
 
@@ -90,10 +91,10 @@ started from a Dicke state~\citep{bartschi2019dicke}, and the adaptive ADAPT-QAO
         mixer, beat random feasible guessing in noiseless simulation, while classical heuristics
         remain orders of magnitude cheaper at these sizes.
   \item A null result for RMT denoising on this universe, with a mechanism.
-  \item A measured noise crossover per mixer with bootstrap confidence intervals: at $N=8$ and
-        $N=10$ both constraint-preserving mixers lose their advantage below current hardware error
-        rates, the deeper ADAPT circuit crosses first, and the crossover falls from $N=8$ to
-        $N=10$. \pending{$N=12$}.
+  \item A measured noise crossover per mixer with bootstrap confidence intervals: at every size
+        tested ($N=8$, 10 and 12) the constraint-preserving mixers lose their advantage below
+        current hardware error rates, the deeper ADAPT circuit crosses first, and the crossover
+        falls as the problem grows (for XY from 0.89 at $N=8$ to 0.46 at $N=12$).
 \end{itemize}
 
 \section{Problem formulation}\label{sec:problem}
@@ -302,18 +303,19 @@ improved).}
 
 \subsection{Noise}
 The noise analysis, including its predictions, was pre-registered before any noisy result of
-record was viewed. Results for $N=8$ and $N=10$ are complete; \pending{$N=12$ (XY and X; noisy
-ADAPT is limited to $N\le10$) is being computed and will be added under the same analysis}. Only
-cells with every instance at every noise level enter. The crossover $m^\ast$ is the first noise level at
+record was viewed. It covers $N=8$, 10 and 12; noisy ADAPT is limited to $N\le10$. Only cells
+with every instance at every noise level enter. The crossover $m^\ast$ is the first noise level at
 which the median $\Amp$ falls to 1, interpolating $\ln\Amp$ linearly in $\ln m$ (linearly in $m$
 from $m=0$), with 95\% percentile-bootstrap intervals from 2{,}000 resamples of the instances;
 the same resamples are used for every mixer, so mixer comparisons are paired.
 
 Figure~\ref{fig:noise} and Table~\ref{tab:crossover} show the result. At $N=8$ both
 constraint-preserving mixers beat random feasible guessing at $m\le0.5$; at $N=10$ ADAPT already
-fails at $m=0.5$ (median $\Amp$ 0.88) while XY still succeeds (1.41). Neither does at $m=1$,
-today's error rates, at either size: median $\Amp$ is 0.60 (ADAPT) and 0.91 (XY) at $N=8$, with
-$\Amp>1$ on only 13\% and 40\% of instances, and 0.38 and 0.66 at $N=10$, with 0\% and 23\%.
+fails at $m=0.5$ (median $\Amp$ 0.88) while XY still succeeds (1.41); at $N=12$ XY passes at
+$m=0.25$ only at the threshold (median 1.26, $\Amp>1$ on exactly two thirds of instances) and
+fails at $m=0.5$ (0.97). No mixer beats random guessing at $m=1$, today's error rates, at any
+size: median $\Amp$ is 0.60 (ADAPT) and 0.91 (XY) at $N=8$, with $\Amp>1$ on only 13\% and 40\% of
+instances, 0.38 and 0.66 at $N=10$, with 0\% and 23\%, and 0.46 for XY at $N=12$, with 7\%.
 
 Contrary to our pre-registered prediction, ADAPT's crossover is \emph{lower} than XY's (bootstrap
 $P(m^\ast_{\mathrm{ADAPT}}>m^\ast_{\mathrm{XY}})=0.013$ at $N=8$ and $0.003$ at $N=10$): ADAPT
@@ -321,17 +323,23 @@ starts higher, but its four layers decay faster. Its paired fraction $\Amp(1)/\A
 $N=8$ and 0.07 at $N=10$, against 0.35 and 0.22 for the single-layer XY circuit, and the paired
 ADAPT/XY ratio of $\Amp$ falls from 1.61 without noise to 0.60 at $m=1$ ($N=10$). As predicted,
 the crossover falls with problem size, as circuit depth and two-qubit gate count grow: for ADAPT
-from 0.71 to 0.45 ($P(m^\ast_{N=8}>m^\ast_{N=10})=1.000$), and for XY from 0.89 to 0.69
-($P=0.913$, not distinguishable at this sample size by our rule; $0.963$ with denoising).
+from 0.71 to 0.45 ($P(m^\ast_{N=8}>m^\ast_{N=10})=1.000$), and for XY from 0.89 to 0.69 to 0.46
+at $N=8$, 10 and 12. For XY each step meets our decision rule in only one of the two denoising
+levels ($P=0.913$ and $0.991$ without denoising, $0.963$ and $0.921$ with it), so the trend is
+consistent but each single step is only marginally resolved at this sample size. The paired
+fraction $\Amp(1)/\Amp(0)$ for XY falls from 0.35 to 0.22 to 0.15.
 
 Noise also breaks the constraint that these mixers preserve exactly without noise: at $m=1$ the
 median probability of a feasible outcome falls from 1 to 0.36 (ADAPT) and 0.49 (XY) at $N=8$, and
 to 0.28 and 0.36 at $N=10$ (Figure~\ref{fig:leakage}), where ADAPT's leakage reaches the level of
-the X mixer (0.27), which does not preserve the cardinality at all. The X mixer stays below random
-guessing at every noise level and decays only slightly, since infeasible outcomes already dominate
-it. RMT denoising has no consistent effect on the constraint-preserving mixers at any noise level
-(paired ratios 0.88--1.10), and their modal selections' out-of-sample variance stays within
-3--10\% of the optimum's.
+the X mixer (0.27), which does not preserve the cardinality at all; at $N=12$ the same happens to
+XY (0.28 against 0.29 for X). The X mixer stays below random guessing at every noise level and
+decays only slightly, since infeasible outcomes already dominate it. As a result, at $N=12$ and
+$m=1$ the XY mixer does worse than X: the paired XY/X ratio of $\Amp$ falls from 2.92 without
+noise to 0.64 ($p=0.006$, descriptive), although neither beats random guessing. RMT denoising has
+no consistent effect on the constraint-preserving mixers at any noise level (paired ratios
+0.86--1.10), and their modal selections' out-of-sample variance stays within 3--13\% of the
+optimum's.
 \begin{figure}[ht]\centering
 \includegraphics[width=0.75\linewidth]{generated/fig_noise.pdf}
 \caption{Amplification $\Amp$ versus noise scale $m$, one panel per problem size (median and 95\%
@@ -367,12 +375,14 @@ heuristics on cost, and its first stage (RMT denoising) does not help on this un
 Under noise, the advantage that exists disappears before current hardware error rates are
 reached. Just for the output to beat random feasible guessing, error rates would have to fall
 by roughly 10--30\% (XY) or 20--40\% (ADAPT) below Heron-class medians at $N=8$, and by roughly
-20--50\% (XY) or 50--60\% (ADAPT) at $N=10$. The extra depth that gives ADAPT its noiseless lead
+20--50\% (XY) or 50--60\% (ADAPT) at $N=10$, and by roughly 45--75\% (XY) at $N=12$. The extra depth that gives ADAPT its noiseless lead
 is what costs it under noise. This depth--accuracy trade-off suggests choosing mixer and depth
 jointly with the expected error rate rather than optimizing noiselessly. Because the crossover
 falls as the problem grows, the error-rate reduction needed for a quantum effect at practically
-relevant sizes is likely larger than these small-$N$ figures suggest. \pending{$N=12$ confirms or
-qualifies the trend for XY}.
+relevant sizes is likely larger than these small-$N$ figures suggest. The $N=12$ results support
+this for XY: its crossover falls to 0.46, and at today's error rates its feasibility leakage
+reaches that of the unconstrained mixer, so the structural advantage of preserving the
+constraint is lost.
 
 Limitations: equal weights rather than continuous weights; a single 30-stock universe with
 survivorship bias and a single out-of-sample period; $N\le14$, where exact search is trivial, so
@@ -381,7 +391,16 @@ without relaxation or crosstalk, applied uniformly to all qubits; exact noisy AD
 $N=10$; and descriptive rather than confirmatory $p$-values.
 
 \section{Conclusion}
-\pending{one-paragraph conclusion once the noise crossover is measured}.
+A complete, pre-registered pipeline of RMT denoising, an exact cardinality-penalty QUBO and QAOA
+shows a genuine quantum effect in noiseless simulation, but only for mixers that preserve the
+constraint, and never at a cost competitive with classical heuristics at these sizes. RMT
+denoising does not help. Under noise calibrated to current hardware, no mixer beats random
+feasible guessing at any size tested: the constraint-preserving mixers cross below it at 0.45--0.89
+times today's error rates, the deeper ADAPT circuit first, and the crossover falls as the problem
+grows, to 0.46 for XY at $N=12$. Error rates would therefore need to fall substantially, and by
+more for larger problems, before QAOA on this problem shows any quantum effect, let alone a useful
+one. Choosing mixer and depth jointly with the expected error rate is the most direct lever this
+study identifies.
 
 \section*{Data and code availability}
 Repository: \url{https://github.com/yuvi1469/nisq-folio}. It contains all code, configurations,
@@ -395,7 +414,7 @@ Both authors contributed equally to this work.
 \section*{Use of AI assistance}
 Software development, tests, analysis scripts and drafting of this manuscript were assisted by
 Anthropic's Claude Opus~5.5 (model ID \texttt{claude-opus-5-5}), used through Claude Code in
-October 2026, under the authors' direction. All scientific decisions were made by the authors and
+October and November 2026, under the authors' direction. All scientific decisions were made by the authors and
 recorded before the corresponding results existed. Every number in the tables and figures is
 generated by scripts from recorded runs, all code passes the automated test suite and continuous
 integration, and all references were checked against their DOI or arXiv records. The authors

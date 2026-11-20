@@ -1223,6 +1223,49 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
   No reported number changes: the 2026-10-22 and 2026-10-29 reports had no N = 12 cell that met
   the old test.
 
+### ADR-028 final results (2026-11-20): N = 8, 10 and 12
+
+- **Source:** the complete `main_r2` grid, 2,400 / 2,400 tasks, finished 2026-11-19. The analysis
+  uses 16 complete cells (1,920 QAOA tasks); noisy ADAPT runs only at N ≤ 10 (ADR-027).
+  Analysis run at commit `e1dfeb5`. Saved report: `docs/results/noisy_final.md`. N = 8 and N = 10
+  numbers are identical to the 2026-10-29 interim (same bootstrap stream).
+- **Provenance of N = 12:** the m = 0 tasks come from `31c7e80`; the noisy ones from `2baf27b`
+  (65), `e3f441d` (53) and `e1dfeb5` (242), all clean, because the run picked up the current
+  commit at each restart. Between them only `analysis/noise.py` (the 2026-11-01 fix), `tools/`,
+  the paper and documentation changed. Experiment code is the same, and every one of the 2,400
+  records carries the same config fingerprint (`32a8bbf9fb47…`).
+- **N = 12, median A by noise level** (denoising = none; share with A > 1 in brackets):
+
+  | Mixer | m = 0 | 0.25 | 0.5 | 1 | m\* [95% CI] |
+  |---|---|---|---|---|---|
+  | XY ring | 2.82 (90%) | 1.26 (67%) | 0.97 (50%) | 0.46 (7%) | 0.46 [0.25, 0.57] |
+  | X | 0.90 (37%) | 0.79 (17%) | 0.72 (23%) | 0.60 (7%) | 0 [0, 0.02] |
+
+  rmt_clip: XY 0.46 [0.26, 0.64]; X 0.
+- **Predictions, final:**
+  1. **Held at every N.** At m = 1 no mixer beats random. At N = 12, XY beats random at
+     m = 0.25 only at the threshold (exactly 20 of 30 instances, both denoising levels) and not
+     at m = 0.5 (median 0.97, 50%).
+  2. **Final as at the interim** (ADAPT is not run under noise at N = 12): m\*_ADAPT is lower than
+     m\*_XY at N = 8 (both denoising levels) and N = 10 (none); not distinguishable at N = 10 with
+     rmt_clip (P = 0.057). m\*_X = 0 at every N.
+  3. **Supported for ADAPT; for XY the trend is consistent but each step meets the rule in only
+     one denoising level.** XY point estimates fall at every step, 0.89 → 0.69 → 0.46 (none) and
+     0.88 → 0.67 → 0.46 (rmt_clip). P(m\*_{N} > m\*_{next N}) is 0.913 and 0.991 (none) and
+     0.963 and 0.921 (rmt_clip) for N = 8 → 10 and 10 → 12. Paired decay A(1)/A(0) for XY is
+     0.35, 0.22 and 0.15 at N = 8, 10 and 12 (none). ADAPT (N = 8 → 10): P = 1.000 and 0.991.
+  4. **Held.** At m = 1, N = 12, XY's median p_feasible is 0.28, the same as X (0.29), which
+     never preserves the cardinality.
+  5. **Held for XY** (N = 12 ratios 0.86–0.95, all p ≥ 0.29). X with rmt_clip is slightly worse
+     at N = 12 for m = 0 and 0.25 (0.87, 0.84; p = 0.03, 0.04), not at m = 0.5 or 1.
+- **Mixers at N = 12 (N5), descriptive:** the paired XY/X A ratio falls from 2.92 at m = 0 to
+  1.61, 1.11 (p = 0.36) and **0.64 at m = 1** (XY better on 30% of instances, p = 0.006). At
+  today's hardware noise and N = 12, the constraint-preserving mixer does worse than the plain X
+  mixer, though neither beats random. At N = 10, m = 1 the two were indistinguishable (0.97).
+- **Deployment (N7), N = 12:** X's modal selection is optimal on 63–77% of instances. XY's modal
+  selection stays within 4–13% (median) of the optimum's out-of-sample variance; 13% at m = 1.
+- **Routing (N8)** covers N = 8 only and is unchanged.
+
 ## ADR-029: Results dashboard and the software-paper (JOSS) plan
 
 - **Status:** Accepted (2026-10-22).

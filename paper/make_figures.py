@@ -115,7 +115,14 @@ def _panels(curve: pd.DataFrame, column: str, ylabel: str, log: bool) -> plt.Fig
             _log_ticks(ax)
     axes[0][0].set_ylabel(ylabel)
     fig.supxlabel("Noise scale $m$ (1 = FakeKingston medians)", y=-0.06, fontsize=8)
-    axes[0][-1].legend(loc="upper right", fontsize=7, handlelength=1.6)
+    # One legend for every mixer drawn in any panel (the last panel may lack ADAPT).
+    handles = {}
+    for ax in axes[0]:
+        for line in ax.get_lines():
+            handles.setdefault(line.get_label(), line)
+    order = [label for label, _, _ in MIXERS.values() if label in handles]
+    axes[0][-1].legend([handles[k] for k in order], order, loc="upper right", fontsize=7,
+                       handlelength=1.6)  # fmt: skip
     return fig
 
 
