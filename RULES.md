@@ -1,6 +1,6 @@
-# CLAUDE.md — standing rules for NISQ-Folio
+# RULES.md — standing rules for NISQ-Folio
 
-These rules govern every session in this repository. They override convenience.
+These rules govern all work in this repository. They override convenience.
 
 ## Project context
 Research-grade capstone: RMT covariance denoising -> QUBO -> adaptive-mixer QAOA for
@@ -21,12 +21,12 @@ dependencies only with `uv add` / `uv remove` (which update `uv.lock`), and reco
 2. **Types and docstrings.** Type hints and docstrings on every public function. Docstrings
    must state the equation being implemented where relevant.
 3. **No hardcoded paths.** Use config files (YAML under `configs/`).
-4. **Never edit or delete an existing test to make it pass.** If a test fails, report it to the
-   user and investigate the actual cause.
+4. **Never edit or delete an existing test to make it pass.** If a test fails, report it and
+   investigate the actual cause.
 5. **Never fabricate results, citations, or data.** If something is uncertain, say so explicitly.
 6. **Provenance.** Every experiment run must log its config and the current git commit hash.
-7. **Verify before finishing.** Before finishing any task, run all three and show the user the
-   actual output:
+7. **Verify before finishing.** Before finishing any task, run all three and check the actual
+   output:
    ```
    uv run ruff check .
    uv run ruff format --check .
@@ -39,5 +39,5 @@ dependencies only with `uv add` / `uv remove` (which update `uv.lock`), and reco
 10. **Zero cost.** The whole project must be completed free of cost (ADR-008). Do not introduce
     anything that costs money or needs a paid account: no paid APIs or data feeds, no paid
     cloud compute, no paid quantum hardware, and no CI setup that leaves GitHub's free tier.
-    If a step seems to need something paid, stop and tell the user, and propose a free
-    alternative.
+    If a step seems to need something paid, stop, raise it with the authors, and propose
+    a free alternative.

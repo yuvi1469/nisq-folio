@@ -86,7 +86,7 @@ def completed_task_ids(root: Path) -> set[str]:
 
 
 def save_result(root: Path, record: dict[str, Any], git: GitState, fingerprint: str) -> Path:
-    """Write one task's record with its provenance (CLAUDE.md rule 6); returns the path."""
+    """Write one task's record with its provenance (RULES.md rule 6); returns the path."""
     path = root / "runs" / f"{record['task_id']}.json"
     _atomic_write(
         path,

@@ -1,5 +1,10 @@
 # Release checklist: v1.0.0
 
+> **Update 2026-11-20 (ADR-031):** the authors decided against Zenodo and an arXiv preprint.
+> Sections 4, 6 (DOI and dataset) and 7 below no longer apply; the v1.0.0 git tag (sections 3 and
+> 5) still does. The current plan is in [SUBMISSION_CHECKLIST.md](SUBMISSION_CHECKLIST.md).
+> v1.0.0 was tagged on 2026-11-20 and the project closed as complete (LICENSE names both authors).
+
 The v1.0.0 release freezes the code, configs, decision log and paper sources that produced the
 results of record, and archives them on Zenodo for a citable DOI (ADR-030). Everything here is free
 (ADR-008). Work through the steps in order; each one says who does it.
@@ -23,17 +28,17 @@ results of record, and archives them on Zenodo for a citable DOI (ADR-030). Ever
       `tectonic -X compile --keep-logs paper/main.tex` with no warnings in the fresh `main.log`
       (without `--keep-logs` an old log is left in place). Done 2026-11-20: all markers
       filled, AI-use statement rewritten, fresh build has no layout warnings.
-- [ ] Both authors read the paper.
+- [x] Both authors read the paper and approved it as final (2026-11-20).
 - [x] README: status section says the grid is complete; results summary points to the final report.
-- [x] Update the decision-record count in `paper/main.tex` if new ADRs were added (still 30).
+- [x] Update the decision-record count in `paper/main.tex` if new ADRs were added (31 after ADR-031).
 
 ## 3. Version and metadata
 
-- [ ] `pyproject.toml`: `version = "1.0.0"`, then `uv lock` (updates the project's own entry).
-- [ ] `CITATION.cff`: `version: 1.0.0` and `date-released:` the release date. Add ORCIDs if you have
+- [x] `pyproject.toml`: `version = "1.0.0"`, then `uv lock` (updates the project's own entry).
+- [x] `CITATION.cff`: `version: 1.0.0` and `date-released:` the release date. Add ORCIDs if you have
       them (free at orcid.org).
-- [ ] `LICENSE`: decide whether the copyright line should name both authors.
-- [ ] `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest` all pass; CI is green.
+- [x] `LICENSE`: decide whether the copyright line should name both authors.
+- [x] `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest` all pass; CI is green.
 
 ## 4. Zenodo (user, once)
 
@@ -45,9 +50,9 @@ results of record, and archives them on Zenodo for a citable DOI (ADR-030). Ever
 
 ## 5. Tag and release
 
-- [ ] `git tag -a v1.0.0 -m "v1.0.0: results of record"` on the commit with green CI, then
+- [x] `git tag -a v1.0.0 -m "v1.0.0: results of record"` on the commit with green CI, then
       `git push origin v1.0.0`.
-- [ ] `gh release create v1.0.0 --title "v1.0.0" --notes-file <notes>`. Zenodo archives the release
+- [x] `gh release create v1.0.0 --title "v1.0.0" --notes-file <notes>`. Zenodo archives the release
       within minutes and mints two DOIs: one for this version and a concept DOI for all versions.
 
 ## 6. After the DOI exists

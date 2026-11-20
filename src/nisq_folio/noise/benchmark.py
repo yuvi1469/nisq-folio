@@ -92,7 +92,7 @@ def benchmark_case(
         circuit: Bound, measured logical circuit.
         method: One of :data:`BENCHMARK_METHODS`.
         settings: Benchmark settings.
-        seed: Used for ``seed_transpiler`` and ``seed_simulator`` (CLAUDE.md rule 1).
+        seed: Used for ``seed_transpiler`` and ``seed_simulator`` (RULES.md rule 1).
 
     Returns:
         A JSON-serializable record: status (``"ok"``, or ``"refused"`` with the error message),

@@ -18,8 +18,8 @@ authors:
     email: kallol.das@spjain.org
     affiliation: "S P Jain School of Global Management"
     # orcid: "https://orcid.org/0000-0000-0000-0000"  # add if you have one
-version: 0.1.0
-date-released: 2026-10-13
+version: 1.0.0
+date-released: 2026-11-20
 license: MIT
 repository-code: "https://github.com/yuvi1469/nisq-folio"
 keywords:

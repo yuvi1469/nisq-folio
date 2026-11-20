@@ -1,6 +1,6 @@
-% NISQ-Folio paper draft. Build: pdflatex main && bibtex main && pdflatex main && pdflatex main
+% NISQ-Folio paper, final version read and approved by both authors (2026-11-20).
+% Build: tectonic -X compile paper/main.tex, or pdflatex main && bibtex main && pdflatex main && pdflatex main
 % (or upload the paper/ folder to Overleaf). Tables in generated/ come from paper/make_tables.py.
-% Text marked \pending{...} depends on the Week 12 noisy grid and must be completed before submission.
 \documentclass[11pt]{article}
 \usepackage[a4paper,margin=2.5cm]{geometry}
 \usepackage[T1]{fontenc}
@@ -13,8 +13,6 @@
 \usepackage{xcolor}
 \usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
 
-\newcommand{\pending}[1]{\textcolor{red}{[PENDING (Week 12 noisy grid): #1]}}
-\newcommand{\todo}[1]{\textcolor{orange}{[TODO: #1]}}
 \newcommand{\Amp}{\mathcal{A}}
 
 \title{Constraint-preserving and adaptive mixers in noisy QAOA for cardinality-constrained
@@ -29,7 +27,7 @@ portfolio selection: a pre-registered benchmark against classical baselines}
   S P Jain School of Global Management\\
   \texttt{kallol.das@spjain.org}
 }
-\date{Draft, \today}
+\date{November 2026}
 
 \begin{document}
 \maketitle
@@ -404,7 +402,7 @@ study identifies.
 
 \section*{Data and code availability}
 Repository: \url{https://github.com/yuvi1469/nisq-folio}. It contains all code, configurations,
-the decision log (30 numbered decision records, including pre-registrations and their results),
+the decision log (31 numbered decision records, including pre-registrations and their results),
 and the scripts that generate every table and figure. Raw market data are not redistributed; the code
 downloads them from Yahoo Finance and verifies the snapshot by checksum.
 

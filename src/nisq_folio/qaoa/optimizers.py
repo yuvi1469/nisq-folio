@@ -73,7 +73,7 @@ def run_spsa(
         fun: Noisy objective.
         x0: Starting parameters.
         budget: Maximum number of evaluations.
-        rng: Seeded generator for the perturbation directions (CLAUDE.md rule 1).
+        rng: Seeded generator for the perturbation directions (RULES.md rule 1).
         settings: SPSA hyperparameters.
 
     Returns:

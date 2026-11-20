@@ -162,7 +162,7 @@ def run_variant(
         problem: The portfolio problem.
         penalty_bound: The provable penalty of ADR-017 (scaled by c for the X mixer only).
         settings: Mixer, optimizer and protocol settings.
-        rng: Seeded generator for shot sampling and SPSA directions (CLAUDE.md rule 1).
+        rng: Seeded generator for shot sampling and SPSA directions (RULES.md rule 1).
         landscape: Precomputed scoring landscape (computed if omitted).
 
     Returns:

@@ -1,4 +1,4 @@
-"""Provenance helpers: record which code version produced an artifact (CLAUDE.md rule 6)."""
+"""Provenance helpers: record which code version produced an artifact (RULES.md rule 6)."""
 
 from __future__ import annotations
 

@@ -1,7 +1,9 @@
 # NISQ-Folio
 
-> **Status: Week 14 of 14 (release in preparation).** The experiment of record is complete
-> (all 2,400 tasks of `main_r2`, finished 2026-11-19). Results of record:
+> **Status: complete (v1.0.0, November 2026).** All 14 weeks of the plan are done, the
+> experiment of record has finished (all 2,400 tasks of `main_r2`), and the paper
+> ([paper/main.tex](paper/main.tex)) is final. For a one-page tour, see
+> [SHOWCASE.md](SHOWCASE.md). Results of record:
 > [noiseless](docs/results/noiseless_main.md) (ADR-026) and
 > [noisy, N = 8, 10 and 12](docs/results/noisy_final.md) (ADR-028). In short: the XY and ADAPT
 > mixers beat random feasible guessing without noise, but no mixer does at today's hardware
@@ -137,7 +139,7 @@ results from a different config.
 alone gives the same result. Numerical libraries and thread scheduling can still introduce
 last-digit differences across machines and operating systems.
 
-**Decisions.** [DECISIONS.md](DECISIONS.md) lists every design choice (ADR-001 to ADR-030),
+**Decisions.** [DECISIONS.md](DECISIONS.md) lists every design choice (ADR-001 to ADR-031),
 including the pre-registrations and their results, failures, and post-hoc changes.
 
 ## Citation

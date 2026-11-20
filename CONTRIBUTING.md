@@ -14,7 +14,7 @@ qiskit_aer.__version__)"`.
 
 1. Fork the repository and create a branch.
 2. `uv sync --locked`, then make your change.
-3. Follow the standing rules in [CLAUDE.md](CLAUDE.md). The most important ones:
+3. Follow the standing rules in [RULES.md](RULES.md). The most important ones:
    - Pass random seeds explicitly; never set global RNG state.
    - Type hints and docstrings (with the equation being implemented) on public functions.
    - Paths and parameters go in YAML configs, not in code.

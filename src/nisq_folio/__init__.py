@@ -4,4 +4,4 @@ Pipeline under study: RMT covariance denoising -> QUBO encoding -> adaptive-mixe
 benchmarked against classical baselines under simulated NISQ noise.
 """
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"

@@ -157,7 +157,7 @@ class NoisyEvaluator:
             rates: Reference error rates.
             backend: Fake backend supplying the coupling map.
             optimization_level: Transpiler optimization level.
-            seed_transpiler: Transpiler seed (CLAUDE.md rule 1).
+            seed_transpiler: Transpiler seed (RULES.md rule 1).
             max_memory_mb: Aer memory cap.
             max_parallel_threads: Aer thread cap (0 = automatic).
             routing: One of :data:`ROUTING_MODES`.

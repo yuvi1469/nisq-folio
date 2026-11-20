@@ -52,7 +52,7 @@ Status values: **Proposed**, **Accepted**, **Superseded by ADR-NNN**.
 - **Reasoning:** uv gives a cross-platform lock file and fast, reproducible installs. The src
   layout ensures tests run against the installed package, not stray files in the working
   directory. The ruff rule set includes `D` (docstrings, Google convention), `ANN` (type hints),
-  and `NPY` (flags legacy global `np.random.*` usage). Together these enforce CLAUDE.md rules
+  and `NPY` (flags legacy global `np.random.*` usage). Together these enforce RULES.md rules
   1–2 mechanically.
 
 ## ADR-004: Explicit seeding via `numpy.random.SeedSequence`
@@ -130,7 +130,7 @@ Status values: **Proposed**, **Accepted**, **Superseded by ADR-NNN**.
 - **Decision:** The working copy lives at `C:\Users\yuvra\dev\nisq-folio`, which is not
   synced by OneDrive. GitHub is the backup. After the move, the uv cache was cleared (`uv cache clean`)
   and the environment rebuilt from `uv.lock`.
-- **Consequences:** Nothing in the code depends on the location (CLAUDE.md rule 3: no hardcoded
+- **Consequences:** Nothing in the code depends on the location (RULES.md rule 3: no hardcoded
   paths). Anyone cloning on Windows should avoid OneDrive-synced folders (noted in README).
 
 ### ADR-006 amendment (2026-10-13): pinned runner images and tool versions
@@ -143,7 +143,7 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
 
 ## ADR-010: The 30-stock universe
 
-- **Status:** Accepted (2026-10-13). Proposed by Claude; the user delegated the choice. Easy to revise:
+- **Status:** Accepted (2026-10-13). Proposed by the AI coding assistant; the user delegated the choice. Easy to revise:
   the list lives only in `configs/base.yaml`, and the cache key changes automatically.
 - **Decision:** 5 stocks in each of 6 GICS sectors:
 
@@ -222,7 +222,7 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
 - **Status:** Accepted (2026-10-13)
 - **Decision:** add `hypothesis~=6.169.0` to the dev dependency group (free and open source). `tests/conftest.py`
   loads a profile with `derandomize=True`, so every run on every machine generates the same examples.
-- **Reasoning:** CLAUDE.md rule 9 asks for meaningful property-based tests. Examples so far:
+- **Reasoning:** RULES.md rule 9 asks for meaningful property-based tests. Examples so far:
   - Returns compound back to the total price change.
   - Returns are invariant to price rescaling.
   - Σ is symmetric positive semidefinite and equals 252 × `np.cov`.
@@ -235,13 +235,13 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
 - **Status:** Accepted (2026-10-13)
 - **Decision:** relative paths inside a YAML config are resolved against the directory containing that file,
   so `configs/base.yaml` uses `../data` and `../results`. They are never resolved against the current working directory.
-- **Reasoning:** results must not depend on where a command was launched from (CLAUDE.md rule 3). This
+- **Reasoning:** results must not depend on where a command was launched from (RULES.md rule 3). This
   replaces the "relative to the repository root" comment in the original scaffold, which code could not
   enforce without guessing where the root is.
 
 ## ADR-014: In-sample / out-of-sample split
 
-- **Status:** Accepted (2026-10-13). Proposed by Claude; the user delegated the choice.
+- **Status:** Accepted (2026-10-13). Proposed by the AI coding assistant; the user delegated the choice.
 - **Decision:** a single fixed split. μ and Σ are estimated on returns from **2015-01-02 to
   2020-12-31** (1,510 trading days). Portfolios that solvers select are evaluated on
   **2021-01-04 to 2023-12-29** (753 trading days), data that no solver ever sees. Configured as
@@ -705,7 +705,7 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
   - Statistics: median paired difference, share of instances improved, and a two-sided Wilcoxon
     signed-rank p over non-zero differences. Instances share assets and are not independent, so
     p-values are descriptive only.
-- **Process incident (disclosed per CLAUDE.md rule 5):**
+- **Process incident (disclosed per RULES.md rule 5):**
   - While writing these tests, I accidentally overwrote the Week 1 placeholder
     `tests/test_denoise.py` (an existing test, contrary to rule 4). It was caught before any
     commit and restored byte-for-byte from git. The new tests live in `tests/test_denoise_rmt.py`.
@@ -844,7 +844,7 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
   would deploy) is scored on 2021–23 returns.
 - **Resumability and provenance** (`experiments/store.py`):
   - One JSON file per finished task, written atomically, so a crash never leaves a partial file.
-  - Each file records its git state and config SHA-256 (CLAUDE.md rule 6).
+  - Each file records its git state and config SHA-256 (RULES.md rule 6).
   - A directory created under one config refuses results from another config.
   - Re-running skips finished tasks.
 - **Parallelism:** `--workers W` uses W processes with Aer capped at 1 thread each.
@@ -953,7 +953,7 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
 - **Config of record:** `configs/main.yaml` extends `base.yaml` (new `extends` support, with mappings
   merged recursively). It changes only the noise levels and the pilot cost model.
   - `base.yaml` and its committed tests are untouched. Editing `base.yaml` would have broken two
-    committed tests that pin its Week 9 values, and CLAUDE.md rule 4 forbids editing them.
+    committed tests that pin its Week 9 values, and RULES.md rule 4 forbids editing them.
   - The experiment fingerprint and recorded config text cover the whole chain, so a later change
     to `base.yaml` is still detected.
 
@@ -1328,3 +1328,26 @@ and pins uv `0.12.17` to match local development. Upgrades happen deliberately, 
   weeks of compute). The run records hold no price data and no local paths, so publishing them as a
   separate Zenodo dataset linked to the software DOI is recommended. The authors decide before the
   release.
+
+## ADR-031: Publication route: Quantum Information Processing only, no arXiv, no Zenodo
+
+- **Status:** Accepted (2026-11-20). Supersedes the archiving part of ADR-030 and the arXiv part of
+  ADR-029.
+- **Decision (authors):** the paper will be submitted to Quantum Information Processing (Springer)
+  on its no-fee route, at a date the authors choose. There is no arXiv preprint and no Zenodo
+  archive or dataset. The paper was read and approved as final by both authors on 2026-11-20.
+- **Consequences:**
+  - `tools/arxiv_bundle.py` and the arXiv steps stay in the repository but are not part of the
+    plan.
+  - Without Zenodo there is no DOI for the code; the paper cites the GitHub repository. A git tag
+    (`v1.0.0`, free) still fixes the exact version the paper describes.
+  - The 2,400 run records stay local and are not published. Reproducing them costs about two weeks
+    of laptop compute (ADR-027).
+  - JOSS (ADR-029) still expects evidence of research use; without a preprint that will be the
+    published article, so the JOSS plan waits for it.
+- **Public communication:** until the article is accepted, the work is described as a completed
+  study prepared for submission, not as published.
+- **Project closed (2026-11-20):** the project is complete and frozen as release `v1.0.0`.
+  Journal submission may follow later or not at all; the repository stays public either way. The
+  standing rules file is `RULES.md` (formerly `CLAUDE.md`); the AI-use disclosures in the paper
+  and the JOSS draft are unchanged.

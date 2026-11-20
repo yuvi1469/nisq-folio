@@ -113,7 +113,7 @@ def run_noiseless_qaoa(
         problem: The portfolio problem.
         penalty: QUBO penalty weight P (ADR-017).
         settings: QAOA settings.
-        rng: Seeded generator for shot sampling (CLAUDE.md rule 1).
+        rng: Seeded generator for shot sampling (RULES.md rule 1).
         landscape: Precomputed landscape for scoring (computed if omitted).
 
     Returns:

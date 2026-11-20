@@ -22,7 +22,7 @@ Daily prices (30 US stocks, checksummed snapshot)
 The experiment of record (`configs/main.yaml`, run `main_r2`) has **2,400 tasks**: N = 8, 10, 12
 and 14 assets, 30 out-of-sample instances each, two denoising levels, three mixers and four
 noise levels. It finished on 19 November 2026. Every analysis was pre-registered in
-[DECISIONS.md](DECISIONS.md) (30 decision records) before its results were viewed.
+[DECISIONS.md](DECISIONS.md) (31 decision records) before its results were viewed.
 
 ## Results
 

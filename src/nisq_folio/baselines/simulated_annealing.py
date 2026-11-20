@@ -78,7 +78,7 @@ def simulated_annealing(
 
     Args:
         problem: The problem instance.
-        rng: Source of randomness; pass a seeded Generator (CLAUDE.md rule 1).
+        rng: Source of randomness; pass a seeded Generator (RULES.md rule 1).
         settings: Annealing settings; defaults to :class:`AnnealingSettings`.
 
     Returns:

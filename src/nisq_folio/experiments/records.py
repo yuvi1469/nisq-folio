@@ -1,4 +1,4 @@
-"""Write self-describing run records (CLAUDE.md rule 6).
+"""Write self-describing run records (RULES.md rule 6).
 
 Every run record is one JSON file containing the full config text, the git state, the data
 snapshot's provenance, and the run's results, so it can be traced back to exact inputs.

@@ -9,7 +9,7 @@ import pytest
 from hypothesis import settings
 
 # Deterministic property-based testing: the same examples on every run and machine,
-# so a failure seen in CI reproduces locally (CLAUDE.md rule 1, DECISIONS.md ADR-012).
+# so a failure seen in CI reproduces locally (RULES.md rule 1, DECISIONS.md ADR-012).
 settings.register_profile("deterministic", derandomize=True, deadline=None)
 settings.load_profile("deterministic")
 

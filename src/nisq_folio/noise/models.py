@@ -40,7 +40,7 @@ def noisy_simulator(backend: BackendV2, method: str, seed: int) -> AerSimulator:
     Args:
         backend: The fake backend to mimic.
         method: One of :data:`SIMULATION_METHODS`.
-        seed: ``seed_simulator`` for Aer (CLAUDE.md rule 1).
+        seed: ``seed_simulator`` for Aer (RULES.md rule 1).
 
     Returns:
         The configured simulator.
