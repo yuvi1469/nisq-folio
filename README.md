@@ -1,10 +1,11 @@
 # NISQ-Folio
 
-> **Status: Week 12 of 14.** The full pipeline, experiment runner, pre-registered analyses
-> (ADR-026 noiseless, ADR-028 noisy), paper figures/tables and a results dashboard are
-> implemented. Noiseless results of record: [docs/results/noiseless_main.md](docs/results/noiseless_main.md).
-> The noisy grid is running; interim N = 8 results:
-> [docs/results/noisy_n8_interim.md](docs/results/noisy_n8_interim.md). See
+> **Status: Week 14 of 14 (release in preparation).** The experiment of record is complete
+> (all 2,400 tasks of `main_r2`, finished 2026-11-19). Results of record:
+> [noiseless](docs/results/noiseless_main.md) (ADR-026) and
+> [noisy, N = 8, 10 and 12](docs/results/noisy_final.md) (ADR-028). In short: the XY and ADAPT
+> mixers beat random feasible guessing without noise, but no mixer does at today's hardware
+> error rates, and the noise they tolerate falls as the problem grows. See
 > [PROJECT_PLAN.md](PROJECT_PLAN.md) for scope and milestones.
 
 ## Overview
@@ -77,7 +78,7 @@ The first data run downloads about 2,264 trading days for 30 tickers from Yahoo 
 ```bash
 # Pre-registered noiseless tables T1-T6 (ADR-026):
 uv run python -m nisq_folio.analysis --config configs/main.yaml --max-noise 0
-# Pre-registered noisy analysis N1-N8 (ADR-028); complete cells only, safe while the grid runs:
+# Pre-registered noisy analysis N1-N8 (ADR-028); complete cells only:
 uv run python -m nisq_folio.analysis.noise_report --config configs/main.yaml --superseded main
 # Paper tables and figures (paper/generated/), then the PDF (Tectonic or any LaTeX):
 uv run python paper/make_tables.py --config configs/main.yaml

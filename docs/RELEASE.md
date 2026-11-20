@@ -6,24 +6,26 @@ results of record, and archives them on Zenodo for a citable DOI (ADR-030). Ever
 
 ## 1. Results are final
 
-- [ ] The noisy grid `main_r2` has finished: 1,440 / 1,440 noisy tasks (dashboard, Progress tab).
-- [ ] The Windows scheduled task is deleted (it was only for the run):
+- [x] The noisy grid `main_r2` has finished: 1,440 / 1,440 noisy tasks (2026-11-19).
+- [x] The Windows scheduled task is deleted (it was only for the run):
       `Unregister-ScheduledTask -TaskName 'NISQ-Folio main_r2' -Confirm:$false`.
-- [ ] Final analysis: `uv run python -m nisq_folio.analysis.noise_report --config configs/main.yaml --superseded main`.
+- [x] Final analysis: `uv run python -m nisq_folio.analysis.noise_report --config configs/main.yaml --superseded main`.
       Copy the report to `docs/results/noisy_final.md` with a provenance header (commit, date),
       as for the interim reports.
-- [ ] ADR-028: add the final results section, including prediction 3 (crossover vs N) with N = 12.
+- [x] ADR-028: add the final results section, including prediction 3 (crossover vs N) with N = 12.
 
 ## 2. Paper and documentation
 
-- [ ] `uv run python paper/make_tables.py --config configs/main.yaml` and
+- [x] `uv run python paper/make_tables.py --config configs/main.yaml` and
       `uv run python paper/make_figures.py --config configs/main.yaml`; inspect every figure.
-- [ ] Fill every `\pending{...}` in `paper/main.tex` (`grep -n 'pending{' paper/main.tex` must list
+- [x] Fill every `\pending{...}` in `paper/main.tex` (`grep -n 'pending{' paper/main.tex` must list
       only the macro definition), resolve the `\todo` on the AI-use wording, and build with
-      `tectonic -X compile paper/main.tex` with no warnings.
+      `tectonic -X compile --keep-logs paper/main.tex` with no warnings in the fresh `main.log`
+      (without `--keep-logs` an old log is left in place). Done 2026-11-20: all markers
+      filled, AI-use statement rewritten, fresh build has no layout warnings.
 - [ ] Both authors read the paper.
-- [ ] README: status section says the grid is complete; results summary points to the final report.
-- [ ] Update the decision-record count in `paper/main.tex` if new ADRs were added.
+- [x] README: status section says the grid is complete; results summary points to the final report.
+- [x] Update the decision-record count in `paper/main.tex` if new ADRs were added (still 30).
 
 ## 3. Version and metadata
 
